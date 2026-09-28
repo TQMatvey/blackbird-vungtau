@@ -13,6 +13,42 @@ There is no build step. Open `index.html` in a browser, or serve the folder:
 npx serve .
 ```
 
+## Deploying
+
+The live site is **https://blackbird-vungtau.pages.dev**, deployed to Cloudflare
+Pages from `dist/`.
+
+**From the command line**, for an immediate push:
+
+```
+bash build.sh
+npx wrangler pages deploy dist --project-name blackbird-vungtau --branch main
+```
+
+This needs `CLOUDFLARE_API_TOKEN` in the environment, with `Cloudflare Pages:
+Edit` and `Account Settings: Read` on the account.
+
+**For automatic deploys**, connect the repository in the Cloudflare dashboard
+(Workers & Pages → Create → Pages → Connect to Git) and set:
+
+| Setting | Value |
+|---|---|
+| Build command | `bash build.sh` |
+| Build output directory | `dist` |
+| Production branch | `main` |
+
+### Why the build exists
+
+The site needs no compiling. The build exists because the repository root also
+holds `README.md`, `DESIGN.md`, `PRODUCT.md` and **32 MB of source
+photography** — none of which should be publicly served. `build.sh` copies
+exactly the six public files into `dist/`, which is the output directory. Cache
+headers ride along in `_headers`.
+
+Never put the Cloudflare token, or the Telegram bot token, anywhere the page can
+read them. This is a static frontend: every byte shipped is downloadable.
+
+
 ## What's here
 
 | | |
