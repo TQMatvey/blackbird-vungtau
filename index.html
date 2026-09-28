@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<!--
+THESIS — Black Bird is one counter that stays open all day, 07:30 to 20:00, and
+the only artefact that says so is the printed boards behind it. The page draws
+that span as a live track with the visitor's own Vũng Tàu clock on it, and sets
+the shop's real items and real prices beneath it. It refuses the category
+default — a centred photo, a serif welcome, a rounded booking button, and
+adjectives about cosy.
+
+OWN-WORLD — The shop's own material read at full strength: bone-cream plaster
+ground #F4F0E6, the board's crimson #A8232B owning whole regions rather than
+accenting, board-black #141110, and one marigold #C98A1B spent only on the
+"open right now" signal. 1px crimson and 1px black rules, square corners, no
+shadows but one soft deep-plaster drop. Component grammar is the menu board: a
+crimson bar, then rows of English name / Vietnamese ticket / dotted leader /
+price in tabular figures, exactly as the board prints them. The crow standing on
+a fork is redrawn from the board as inline SVG, not borrowed.
+
+STORY — In one viewport a first-time visitor learns: this is Black Bird, a counter
+at N4/4 Bầu Sen 6, Ward 2, Vũng Tàu; it says "We don't chirp — we chew"; it is
+open or closed right now and until when; a salted salmon pita costs 85.000đ; and
+it answers 038 226 4034. Nothing here is invented — every name, price and number
+is lifted from the shop's own board and its own listings. The room is a mix of
+Russian and Vietnamese regulars, so the page carries all three languages:
+English first, Vietnamese second, Russian third, switched in place.
+
+FIRST VIEWPORT — A 56px board-black bar: fork-and-crow mark and wordmark left,
+the day-strip in the middle, the EN/VI/RU toggle and a crimson call button
+right. Beneath, full-bleed on bone-cream, the wordmark set enormous and stacked
+as the board sets it — Black in board-black over Bird in crimson — with WE DON'T
+CHIRP · WE CHEW in tracked crimson caps on a crimson rule. To its right, the
+readout constellation: open/closed with the closing time, the phone, the
+address, the Google rating. The hero's lower third is already the first rows of
+the real menu, so density and real prices are visible before any scroll.
+
+FORM — Grounded candidate 7 of 7 (the all-day programme: one room, three
+shifts), the direction assigned by concept-seed key f4ddcfb7. Code-led: no
+decision comp, and no stock photography. The page ships with no images at all —
+the earlier photo set was wrong (a burger, among other mismatches) and has been
+removed rather than patched. assets/img/ is empty and waiting for the owner's
+own pictures.
+
+ORDER — not a reservation form. The shop is a walk-in counter, so the page takes
+an order: quantities on the real items, a running total in đồng, and a list to
+read down the phone. No server, and none pretended. Payment — a Telegram bot and
+VietQR — is a later step; see PRODUCT.md.
+
+FINISH — unreviewed and undocumented is unfinished; this build ends with the
+finish review, the verdict, and DESIGN.md.
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Black Bird — Pitas &amp; Sandwiches, N4/4 Hoàng Hữu Nam, Vũng Tàu</title>
+<meta name="description" data-vi="Bánh mì pita nướng tại chỗ, bánh nướng tươi và thịt nướng theo 100 gram tại N4/4 Hoàng Hữu Nam, P.2 Vũng Tàu. Mở 7:30 – 20:00 hằng ngày." data-en="Pitas baked on the spot, pies made to order and roast meats by the 100 gram at N4/4 Hoàng Hữu Nam, Ward 2, Vũng Tàu. Open 7:30 – 20:00 daily." data-ru="Питы пекут на месте, пироги готовят на заказ и жареное мясо на 100 грамм. N4/4 Hoàng Hữu Nam, П.2, Вунгтау. Открыто 7:30 – 20:00 ежедневно.">
+<meta name="theme-color" content="#141110">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/img/logo-crimson.jpg">
+</head>
+<body>
+
+<a class="skip" href="#menu" data-vi="Đến thực đơn" data-en="Skip to the menu" data-ru="Перейти к меню">Skip to the menu</a>
+
+<!-- ============ BAR ============ -->
+<header class="bar" id="bar">
+  <div class="bar__in">
+    <a class="bar__mark" href="#top" aria-label="Black Bird">
+      <span class="bar__name">Black<span class="bar__name-b">Bird</span></span>
+    </a>
+
+    <div class="clock" id="clock" data-open="true">
+      <span class="clock__dot" aria-hidden="true"></span>
+      <span class="clock__t" id="stripClock">—</span>
+      <span class="clock__l" data-vi="giờ Vũng Tàu" data-en="Vũng Tàu time" data-ru="время Вунгтау">Vũng Tàu time</span>
+    </div>
+
+    <div class="bar__act">
+      <div class="langs" role="group" aria-label="Language">
+        <button type="button" data-setlang="en" aria-pressed="true">EN</button>
+        <button type="button" data-setlang="vi" aria-pressed="false">VI</button>
+        <button type="button" data-setlang="ru" aria-pressed="false">RU</button>
+      </div>
+      <a class="call" href="tel:+84382264034">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z" fill="currentColor"/></svg>
+        <span data-vi="Gọi điện" data-en="Call" data-ru="Позвонить">Call</span>
+      </a>
+    </div>
+  </div>
+  <div class="bar__prog" id="prog" aria-hidden="true"></div>
+</header>
+
+<main id="top">
+
+<!-- ============ SKY / HERO ============ -->
+<section class="hero">
+  <div class="hero__grid">
+
+    <div class="hero__id">
+      <h1 class="wordmark">
+        <span class="wordmark__a">Black</span>
+        <span class="wordmark__b">Bird</span>
+      </h1>
+      <p class="tagline"><span data-vi="Chúng tôi không hót" data-en="We don't chirp" data-ru="Мы не поём">We don't chirp</span> <i>·</i> <span data-vi="chúng tôi nhai" data-en="we chew" data-ru="мы жуём">we chew</span></p>
+
+      <p class="lede" data-vi="Bánh mì pita nướng ngay tại chỗ, bánh nướng làm theo yêu cầu và thịt nướng bán theo 100 gram. Một quán, một ngày dài, từ 7:30 sáng đến 20:00 tối." data-en="Pitas baked on the spot, pies made to order, and roast meats sold by the 100 gram. One counter, one long day, from 07:30 in the morning to 20:00 at night." data-ru="Питы пекут на месте, пироги готовят на заказ, а жареное мясо продаётся на 100 грамм. Одно место, один долгий день, с 07:30 утра до 20:00 вечера.">Pitas baked on the spot, pies made to order, and roast meats sold by the 100 gram. One counter, one long day, from 07:30 in the morning to 20:00 at night.</p>
+
+      <div class="hero__cta">
+        <a class="btn btn--solid" href="tel:+84382264034">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z" fill="currentColor"/></svg>
+          038 226 4034
+        </a>
+        <a class="btn" href="#order" data-vi="Đặt món" data-en="Order" data-ru="Заказать">Order</a>
+      </div>
+    </div>
+
+    <!-- The readout constellation: one readout, one truth. -->
+    <div class="readout">
+      <div class="readout__state" id="state" data-state="unknown">
+        <span class="readout__dot" aria-hidden="true"></span>
+        <span class="readout__word" id="stateWord">—</span>
+        <span class="readout__until" id="stateUntil"></span>
+      </div>
+      <p class="sr-only" id="stateLive" aria-live="polite"></p>
+
+      <dl class="facts">
+        <div class="facts__row">
+          <dt data-vi="Giờ mở cửa" data-en="Hours" data-ru="Часы работы">Hours</dt>
+          <dd class="num">07:30 – 20:00 <span data-vi="hằng ngày" data-en="daily" data-ru="ежедневно">daily</span></dd>
+        </div>
+        <div class="facts__row">
+          <dt data-vi="Điện thoại" data-en="Telephone" data-ru="Телефон">Telephone</dt>
+          <dd><a href="tel:+84382264034" class="num">038 226 4034</a></dd>
+        </div>
+        <div class="facts__row">
+          <dt data-vi="Địa chỉ" data-en="Address" data-ru="Адрес">Address</dt>
+          <dd>
+            <a class="addr" href="https://www.google.com/maps/search/?api=1&amp;query=10.3363636%2C107.0844276&amp;query_place_id=0x31756f9afbec0ec1%3A0x51e1dd8ea3675396" target="_blank" rel="noopener">
+              N4/4 Hoàng Hữu Nam, P.2<br><span data-vi="Vũng Tàu" data-en="Vũng Tàu" data-ru="Вунгтау">Vũng Tàu</span>
+              <em data-vi="(bảng menu cũng ghi N4/4 Bầu Sen 6)" data-en="(older boards also say N4/4 Bầu Sen 6)" data-ru="(на старых меню также указано N4/4 Bầu Sen 6)">(older boards also say N4/4 Bầu Sen 6)</em>
+            </a>
+          </dd>
+        </div>
+        <div class="facts__row">
+          <dt>Google</dt>
+          <dd class="num">★ 4.9 <span data-vi="Trên Google Maps" data-en="on Google Maps" data-ru="на Google Maps">on Google Maps</span></dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- The day-strip: the shop's one true time fact, and the page's spine.
+       These are clock positions, not a production schedule — the boards give
+       no per-item times, and the pies are made to order rather than baked on
+       a morning round. -->
+  <div class="day" id="day">
+    <div class="day__track">
+      <span class="day__fill" id="dayFill"></span>
+      <span class="day__now" id="dayNow"></span>
+      <span class="day__tick" style="--at:0%"></span>
+      <span class="day__tick" style="--at:20%"></span>
+      <span class="day__tick" style="--at:52%"></span>
+      <span class="day__tick" style="--at:84%"></span>
+      <span class="day__tick" style="--at:100%"></span>
+    </div>
+    <ol class="day__shifts">
+      <li style="--at:0%"    data-vi="07:30 Mở cửa" data-en="07:30 Open" data-ru="07:30 Открыто">07:30 Open</li>
+      <li style="--at:20%"   data-vi="10:00 Buổi sáng" data-en="10:00 Mid-morning" data-ru="10:00 Утро">10:00 Mid-morning</li>
+      <li style="--at:52%"   data-vi="14:00 Buổi trưa" data-en="14:00 Lunch" data-ru="14:00 Обед">14:00 Lunch</li>
+      <li style="--at:84%"   data-vi="18:00 Buổi tối" data-en="18:00 Evening" data-ru="18:00 Вечер">18:00 Evening</li>
+      <li style="--at:100%"  data-vi="20:00 Đóng cửa" data-en="20:00 Close" data-ru="20:00 Закрыто">20:00 Close</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ MENU ============ -->
+<section class="menu" id="menu">
+  <div class="menu__head">
+    <h2 data-vi="Thực đơn" data-en="The menu" data-ru="Меню">The menu</h2>
+    <p class="menu__note" data-vi="Đúng như bảng thực đơn tại quán. Giá niêm yết bằng đồng." data-en="Exactly as the board in the shop. Prices in đồng." data-ru="Как на доске в зале. Цены в донгах.">Exactly as the board in the shop. Prices in đồng.</p>
+  </div>
+
+  <!-- The board, as category cards. Thirty items in one column is a long
+       scroll; seven cards in a grid is roughly a third of the height, and
+       the group a dish belongs to stops being something you have to
+       remember from the last crimson bar you passed. -->
+  <div class="board">
+
+    <section class="grp">
+      <h3 class="grp__h" data-vi="Bánh mì pita" data-en="Pitas" data-ru="Питы">Pitas</h3>
+      <ul class="grp__list">
+        <li class="row row--pita">
+          <div class="row__body">
+            <h4 class="row__name">Salted Salmon Pita</h4>
+            <p class="row__ticket" data-vi="Bánh cá hồi muối tươi lạnh" data-en="with tzatziki" data-ru="с цатцики">with tzatziki</p>
+          </div>
+          <p class="row__price num row__price--two">
+            <span class="row__p"><span class="row__pv">120.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Lớn" data-en="Large" data-ru="Большой">Large</span></span>
+            <span class="row__p"><span class="row__pv">80.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Vừa" data-en="Medium" data-ru="Средний">Medium</span></span>
+          </p>
+        </li>
+        <li class="row row--pita">
+          <div class="row__body">
+            <h4 class="row__name">Grilled Pork Pita</h4>
+            <p class="row__ticket" data-vi="Bánh thịt heo nướng thơm" data-en="with fresh mayo" data-ru="со свежим майонезом">with fresh mayo</p>
+          </div>
+          <p class="row__price num row__price--two">
+            <span class="row__p"><span class="row__pv">120.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Lớn" data-en="Large" data-ru="Большой">Large</span></span>
+            <span class="row__p"><span class="row__pv">80.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Vừa" data-en="Medium" data-ru="Средний">Medium</span></span>
+          </p>
+        </li>
+        <li class="row row--pita">
+          <div class="row__body">
+            <h4 class="row__name">Roast Beef Pita</h4>
+            <p class="row__ticket" data-vi="Bánh thịt bò nướng mọng" data-en="with honey mustard" data-ru="с медово-горчичным соусом">with honey mustard</p>
+          </div>
+          <p class="row__price num row__price--two">
+            <span class="row__p"><span class="row__pv">120.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Lớn" data-en="Large" data-ru="Большой">Large</span></span>
+            <span class="row__p"><span class="row__pv">80.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Vừa" data-en="Medium" data-ru="Средний">Medium</span></span>
+          </p>
+        </li>
+        <li class="row row--pita">
+          <div class="row__body">
+            <h4 class="row__name">Camembert Cheese Pita</h4>
+            <p class="row__ticket" data-vi="Bánh Camembert Cheese Ý" data-en="with berry sauce" data-ru="с ягодным соусом">with berry sauce</p>
+          </div>
+          <p class="row__price num row__price--two">
+            <span class="row__p"><span class="row__pv">120.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Lớn" data-en="Large" data-ru="Большой">Large</span></span>
+            <span class="row__p"><span class="row__pv">80.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Vừa" data-en="Medium" data-ru="Средний">Medium</span></span>
+          </p>
+        </li>
+        <li class="row row--pita">
+          <div class="row__body">
+            <h4 class="row__name">Grilled Chicken Pita</h4>
+            <p class="row__ticket" data-vi="Bánh thịt gà nướng thơm" data-en="with tzatziki" data-ru="с цатцики">with tzatziki</p>
+          </div>
+          <p class="row__price num row__price--two">
+            <span class="row__p"><span class="row__pv">120.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Lớn" data-en="Large" data-ru="Большой">Large</span></span>
+            <span class="row__p"><span class="row__pv">80.000<span class="row__cur">đ</span></span> <span class="row__pl" data-vi="Vừa" data-en="Medium" data-ru="Средний">Medium</span></span>
+          </p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="grp">
+      <h3 class="grp__h" data-vi="Mâm lạnh" data-en="Cold Platters" data-ru="Холодные закуски">Cold Platters</h3>
+      <ul class="grp__list">
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Fresh Salted Salmon</h4>
+            <p class="row__ticket" data-vi="Cá hồi muối tươi" data-en="a 100 gram portion" data-ru="порция 100 грамм">a 100 gram portion</p>
+          </div>
+          <p class="row__price num">120.000<span class="row__cur">đ</span><span class="row__per">/100g</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Marinated Roast Beef</h4>
+            <p class="row__ticket" data-vi="Bò nướng mọng kiểu Âu" data-en="a 100 gram portion" data-ru="порция 100 грамм">a 100 gram portion</p>
+          </div>
+          <p class="row__price num">90.000<span class="row__cur">đ</span><span class="row__per">/100g</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Juicy Grilled Pork Belly</h4>
+            <p class="row__ticket" data-vi="Thịt heo ba rọt nướng" data-en="a 100 gram portion" data-ru="порция 100 грамм">a 100 gram portion</p>
+          </div>
+          <p class="row__price num">90.000<span class="row__cur">đ</span><span class="row__per">/100g</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Grilled Chicken</h4>
+            <p class="row__ticket" data-vi="Gà nướng thơm" data-en="a 100 gram portion" data-ru="порция 100 грамм">a 100 gram portion</p>
+          </div>
+          <p class="row__price num">90.000<span class="row__cur">đ</span><span class="row__per">/100g</span></p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="grp">
+      <h3 class="grp__h" data-vi="Bánh nướng" data-en="Pies" data-ru="Пироги">Pies</h3>
+      <ul class="grp__list">
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Berries Pie</h4>
+            <p class="row__ticket" data-vi="Bánh nướng quả mọng" data-en="mixed berry" data-ru="смешанные ягоды">mixed berry</p>
+          </div>
+          <p class="row__price num">180.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Apples Pie</h4>
+            <p class="row__ticket" data-vi="Bánh nướng táo" data-en="apple" data-ru="яблоко">apple</p>
+          </div>
+          <p class="row__price num">180.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Peaches Pie</h4>
+            <p class="row__ticket" data-vi="Bánh nướng đào" data-en="peach" data-ru="персик">peach</p>
+          </div>
+          <p class="row__price num">180.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Cheeses &amp; Green Mixed Pie</h4>
+            <p class="row__ticket" data-vi="Bánh nướng phô mai và rau mix" data-en="cheese and greens" data-ru="сыр и зелень">cheese and greens</p>
+          </div>
+          <p class="row__price num">180.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Mushrooms Mixed Pie</h4>
+            <p class="row__ticket" data-vi="Bánh nướng nấm mix" data-en="mushroom" data-ru="грибы">mushroom</p>
+          </div>
+          <p class="row__price num">180.000<span class="row__cur">đ</span></p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="grp">
+      <h3 class="grp__h" data-vi="Bánh ngọt" data-en="Sweet" data-ru="Сладкое">Sweet</h3>
+      <ul class="grp__list">
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Napoleon Cake</h4>
+            <p class="row__ticket" data-vi="Bánh Napoleon" data-en="by the slice" data-ru="по кускам">by the slice</p>
+          </div>
+          <p class="row__price num">70.000<span class="row__cur">đ</span><span class="row__per" data-vi="/cái" data-en="/slice" data-ru="/кусок">/slice</span></p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="grp">
+      <h3 class="grp__h" data-vi="Vỏ bánh và dưa muối" data-en="Bread and pickles" data-ru="Тесто и соленья">Bread and pickles</h3>
+      <ul class="grp__list">
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Hand Made Pita Bread</h4>
+            <p class="row__ticket" data-vi="Vỏ bánh Pitas thủ công" data-en="baked in the shop" data-ru="выпекается в зале">baked in the shop</p>
+          </div>
+          <p class="row__price num">20.000<span class="row__cur">đ</span><span class="row__per" data-vi="/cái" data-en="/piece" data-ru="/шт.">/piece</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Home-made Pickle Cucumber</h4>
+            <p class="row__ticket" data-vi="Dưa chuột muối chua" data-en="a 100 gram portion" data-ru="порция 100 грамм">a 100 gram portion</p>
+          </div>
+          <p class="row__price num">50.000<span class="row__cur">đ</span><span class="row__per">/100g</span></p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="grp">
+      <h3 class="grp__h" data-vi="Sốt làm tại quán" data-en="Hand-made sauces" data-ru="Соусы собственного производства">Hand-made sauces</h3>
+      <ul class="grp__list">
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Hand-made Sour Cream</h4></div>
+          <p class="row__price num">45.000<span class="row__cur">đ</span><span class="row__per">/100ml</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Hand-made Mayonnaise</h4></div>
+          <p class="row__price num">40.000<span class="row__cur">đ</span><span class="row__per">/100ml</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Honey Mustard Sauce</h4></div>
+          <p class="row__price num">50.000<span class="row__cur">đ</span><span class="row__per">/100ml</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Creamy Tzatziki Sauce</h4></div>
+          <p class="row__price num">55.000<span class="row__cur">đ</span><span class="row__per">/100ml</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Hand-made Berry Sauce</h4></div>
+          <p class="row__price num">55.000<span class="row__cur">đ</span><span class="row__per">/100ml</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Hand-made Pesto Sauce</h4></div>
+          <p class="row__price num">40.000<span class="row__cur">đ</span><span class="row__per">/100ml</span></p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="grp">
+      <h3 class="grp__h" data-vi="Đồ uống" data-en="Drinks" data-ru="Напитки">Drinks</h3>
+      <ul class="grp__list">
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Russian Apple Tea</h4>
+            <p class="row__ticket" data-vi="Nước đun táo giãi nhiệt" data-en="brewed apple tea" data-ru="яблочный чай">brewed apple tea</p>
+          </div>
+          <p class="row__price num">25.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body">
+            <h4 class="row__name">Kvas</h4>
+            <p class="row__ticket" data-vi="Nước lúa mạch lên men" data-en="fermented bread drink" data-ru="квас, сброженный напиток">fermented bread drink</p>
+          </div>
+          <p class="row__price num">25.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Berry Milk-shakes</h4></div>
+          <p class="row__price num">55.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Vanilla Milk-shakes</h4></div>
+          <p class="row__price num">50.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Oreo Milk-shakes</h4></div>
+          <p class="row__price num">55.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Coca Zero</h4></div>
+          <p class="row__price num">15.000<span class="row__cur">đ</span></p>
+        </li>
+        <li class="row">
+          <div class="row__body"><h4 class="row__name">Aquafina Soda</h4></div>
+          <p class="row__price num">15.000<span class="row__cur">đ</span></p>
+        </li>
+      </ul>
+    </section>
+
+  </div>
+</section>
+
+<!-- ============ ROOM ============ -->
+<section class="room">
+  <div class="room__in">
+    <h2 data-vi="Phòng và chỗ ngồi" data-en="The room and the seats" data-ru="Зал и места">The room and the seats</h2>
+    <ul class="tags">
+      <li data-vi="Ghế ngoài trời" data-en="Outdoor seating" data-ru="Места снаружи">Outdoor seating</li>
+      <li data-vi="Phòng riêng" data-en="Private room" data-ru="Отдельный зал">Private room</li>
+      <li data-vi="Chỗ chơi cho trẻ em" data-en="Children's area" data-ru="Детская зона">Children's area</li>
+      <li data-vi="Karaoke" data-en="Karaoke" data-ru="Караоке">Karaoke</li>
+      <li data-vi="Máy lạnh" data-en="Air conditioning" data-ru="Кондиционер">Air conditioning</li>
+      <li>Wi-Fi</li>
+      <li data-vi="Giữ xe máy miễn phí" data-en="Free motorbike parking" data-ru="Бесплатная парковка мотоциклов">Free motorbike parking</li>
+      <li data-vi="Có bãi để ô tô" data-en="Car parking" data-ru="Парковка для авто">Car parking</li>
+      <li data-vi="Thẻ tín dụng" data-en="Card payment" data-ru="Оплата картой">Card payment</li>
+      <li data-vi="Giao hàng &amp; mang về" data-en="Delivery &amp; takeaway" data-ru="Доставка и с собой">Delivery &amp; takeaway</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ ORDER ============ -->
+<section class="order" id="order">
+  <div class="order__in">
+    <div class="order__side">
+      <h2 data-vi="Đặt món" data-en="Place an order" data-ru="Сделать заказ">Place an order</h2>
+      <p data-vi="Chọn món, xem tổng tiền, rồi gửi đơn ngay từ đây." data-en="Pick your items, see the total, and send the order from here." data-ru="Выберите блюда, узнайте итог и отправьте заказ прямо отсюда.">Pick your items, see the total, and send the order from here.</p>
+      <p class="order__steps" data-vi="Bước 1: chỉnh số lượng. Bước 2: bấm Gửi đơn." data-en="Step 1: set the quantities. Step 2: press Send order." data-ru="Шаг 1: укажите количество. Шаг 2: нажмите Отправить заказ.">Step 1: set the quantities. Step 2: press Send order.</p>
+      <div class="order__acts">
+        <button class="btn btn--solid btn--lg" type="button" id="sendOrder" data-vi="Gửi đơn" data-en="Send order" data-ru="Отправить заказ">Send order</button>
+        <button class="btn btn--lg" type="button" id="copyOrder" data-vi="Chép đơn" data-en="Copy order" data-ru="Скопировать заказ">Copy order</button>
+      </div>
+      <p class="order__alt" data-vi="Hoặc gọi cho quán: 038 226 4034" data-en="Or call the shop: 038 226 4034" data-ru="Или позвоните: 038 226 4034">Or call the shop: <a href="tel:+84382264034">038 226 4034</a></p>
+      <p class="order__note" data-vi="Đặt trực tiếp tại đây luôn rẻ hơn — các ứng dụng giao hàng cộng thêm phí dịch vụ." data-en="Ordering direct here is always cheaper — the delivery apps add a service fee on top." data-ru="Заказ напрямую здесь всегда дешевле — приложения доставки добавляют плату за сервис.">Ordering direct here is always cheaper — the delivery apps add a service fee on top.</p>
+    </div>
+
+    <div class="order__box">
+      <p class="order__picklabel" data-vi="Chỉnh số lượng bằng − và +" data-en="Set the quantity with − and +" data-ru="Укажите количество кнопками − и +">Set the quantity with − and +</p>
+      <div class="order__list" id="orderList">
+        <!-- built from the same items and prices as the board -->
+      </div>
+
+      <div class="order__sum" id="orderSum" hidden>
+        <p class="order__count" id="orderCount"></p>
+        <ul class="order__lines" id="orderLines"></ul>
+        <p class="order__total">
+          <span data-vi="Tổng" data-en="Total" data-ru="Итого">Total</span>
+          <span class="num" id="orderTotal">0đ</span>
+        </p>
+        <p class="order__hint" data-vi="Bấm Gửi đơn để gửi danh sách này qua Telegram tới quán." data-en="Press Send order to send this list to the shop over Telegram." data-ru="Нажмите Отправить заказ, чтобы отправить этот список в заведение через Telegram.">Press Send order to send this list to the shop over Telegram.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOT ============ -->
+<footer class="foot">
+  <div class="foot__in">
+    <div class="foot__mark">
+      <img class="foot__logo" src="assets/img/logo.jpg" width="520" height="520" loading="lazy" decoding="async" alt="Black Bird — We don't chirp, we chew">
+    </div>
+
+    <div class="foot__cols">
+      <div>
+        <h4 data-vi="Ghé quán" data-en="Visit" data-ru="Приходите">Visit</h4>
+      <p>N4/4 Hoàng Hữu Nam, P.2<br><span data-vi="Vũng Tàu" data-en="Vũng Tàu" data-ru="Вунгтау">Vũng Tàu</span></p>
+      <p class="foot__alt" data-vi="Các bảng menu cũ ghi N4/4 Bầu Sen 6" data-en="Older menu boards say N4/4 Bầu Sen 6" data-ru="На старых меню указано N4/4 Bầu Sen 6">Older menu boards say N4/4 Bầu Sen 6</p>
+      </div>
+      <div>
+        <h4 data-vi="Gọi" data-en="Call" data-ru="Звонок">Call</h4>
+        <p><a href="tel:+84382264034" class="num">038 226 4034</a></p>
+        <p>07:30 – 20:00 <span data-vi="hằng ngày" data-en="daily" data-ru="ежедневно">daily</span></p>
+      </div>
+      <div>
+        <h4 data-vi="Theo dõi" data-en="Follow" data-ru="Мы здесь">Follow</h4>
+        <ul class="social">
+          <li><a href="https://www.facebook.com/p/Black-Bird-Brunch-Bites-61583939303044/" target="_blank" rel="noopener">Facebook</a></li>
+          <li><a href="https://www.instagram.com/blackbird_brunchbites/" target="_blank" rel="noopener">Instagram</a></li>
+          <li><a href="https://shopeefood.vn/vung-tau/black-bird-brunch-bites-pitas-sandwiches-hoang-huu-nam" target="_blank" rel="noopener">ShopeeFood</a></li>
+          <li><a href="https://www.foody.vn/vung-tau/black-bird-brunch-bites-pitas-sandwiches-hoang-huu-nam" target="_blank" rel="noopener">Foody</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <p class="foot__legal" data-vi="Thực đơn và giá đọc từ bảng thực đơn của quán. Địa chỉ và giờ mở cửa do chủ quán xác nhận." data-en="The menu and its prices are read off the shop's own boards. The address and opening hours were confirmed by the owner." data-ru="Меню и цены прочитаны с собственных досок заведения. Адрес и часы работы подтверждены владельцем.">The menu and its prices are read off the shop's own boards. The address and opening hours were confirmed by the owner.</p>
+</footer>
+
+<!-- Sticky mobile action bar: the one thing a hungry person wants. -->
+<div class="dock" id="dock">
+  <a class="dock__call" href="tel:+84382264034">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z" fill="currentColor"/></svg>
+    <span data-vi="Gọi đặt bàn" data-en="Call to book" data-ru="Позвонить и забронировать">Call to book</span>
+  </a>
+  <a class="dock__map" href="https://www.google.com/maps/search/?api=1&amp;query=10.3363636%2C107.0844276&amp;query_place_id=0x31756f9afbec0ec1%3A0x51e1dd8ea3675396" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z" fill="currentColor"/></svg>
+    <span data-vi="Chỉ đường" data-en="Directions" data-ru="Маршрут">Directions</span>
+  </a>
+</div>
+
+<script src="assets/app.js" defer></script>
+</body>
+</html>

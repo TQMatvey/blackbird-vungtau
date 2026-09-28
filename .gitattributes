@@ -1,0 +1,8 @@
+# Text files are LF everywhere, including on Windows checkouts.
+# CRLF in a shell script or a CSS file is noise in a diff.
+* text=auto eol=lf
+
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary

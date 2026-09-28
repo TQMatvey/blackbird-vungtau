@@ -1,0 +1,15 @@
+# Tooling, not part of the site
+.kilocode/
+.impeccable/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Nothing is built, so there is nothing to ignore — but keep the door
+# open for a future _site/ or dist/ output.
+_site/
+dist/
+node_modules/
