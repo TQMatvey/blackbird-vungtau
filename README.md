@@ -88,12 +88,35 @@ attribute, not the text.
 English first, Vietnamese second, Russian third — the order the room's regulars
 actually arrive in. The switch is instant, no reload, and remembers your choice.
 
+## Orders
+
+**Send order** POSTs the order to a Cloudflare Worker, which forwards it to the
+shop's Telegram. The worker is in `worker/`:
+
+```
+GET  /health     liveness
+GET  /setup      (re)register the Telegram webhook — needed after a redeploy
+POST /order      { lines, total, pickup } -> { ok, ref }
+POST /telegram   Telegram webhook
+```
+
+The bot token is a **Worker secret**, not a file and not in git. That is not
+incidental: this is a static site, so anything in `assets/app.js` is readable by
+anyone who views source. The token is set with:
+
+```
+npx wrangler --cwd worker secret put TELEGRAM_BOT_TOKEN
+npx wrangler --cwd worker secret put SHOP_CHAT_ID
+npx wrangler --cwd worker secret put WEBHOOK_URL
+```
+
+**Not done yet:** VietQR payment. The worker is the place it will live, since
+that also needs a server-held secret.
+
 ## Two things that are not finished
 
-- **The order builder does not take payment.** *Send order* writes the order out
-  and hands it to Telegram, ready to send. There is no server, so the page never
-  claims the shop received anything. The owner's plan is a Telegram bot plus
-  VietQR; `ORDER_BOT` in `assets/app.js` is wired and waiting.
+- **No payment.** Orders reach the shop over Telegram; nothing takes money yet.
+  VietQR is the plan, and the worker is where it goes.
 - **The photographs are parked.** The shop's own images were placed, reviewed
   and then pulled at the owner's request. The processed files sit in
   `restaurant_assets/processed/`; copying them back into `assets/img/` and

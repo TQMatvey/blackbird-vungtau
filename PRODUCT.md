@@ -12,7 +12,7 @@
 >    (`menu1.jpg`, `menu2.jpg`, `menu_pies.jpg`, `napoleon.jpg`). The previous
 >    nine items were read off a different, older board and were wrong: most
 >    prices had moved, and several items did not exist. The new menu is
->    **30 items in 7 groups**, exactly as the boards print them. **Tofu Pita is
+>    **31 items in 7 groups**, exactly as the boards print them. **Tofu Pita is
 >    excluded, and Beetroot-Apple Mixed Smoothie is removed, both at the owner's
 >    instruction.**
 > 3. **All photographs are removed from the page.** The earlier image set was
@@ -153,36 +153,37 @@ from the site at the owner's instruction.*
 | # | English | Tiếng Việt | Price |
 |---|---|---|---|
 | 15 | Napoleon Cake | Bánh Napoleon | 70.000 / piece |
+| 16 | Full Napoleon Cake | Bánh Napoleon nguyên cái | 500.000 / cake |
 
 **Bread and pickles**
 
 | # | English | Tiếng Việt | Price |
 |---|---|---|---|
-| 16 | Hand Made Pita Bread | Vỏ bánh Pitas thủ công | 20.000 / piece |
-| 17 | Home-made Pickle Cucumber | Dưa chuột muối chua | 50.000 / 100 gr |
+| 17 | Hand Made Pita Bread | Vỏ bánh Pitas thủ công | 20.000 / piece |
+| 18 | Home-made Pickle Cucumber | Dưa chuột muối chua | 50.000 / 100 gr |
 
 **Hand-made sauces — per 100 ml**
 
 | # | English | Price |
 |---|---|---|
-| 18 | Hand-made Sour Cream | 45.000 |
-| 19 | Hand-made Mayonnaise | 40.000 |
-| 20 | Honey Mustard Sauce | 50.000 |
-| 21 | Creamy Tzatziki Sauce | 55.000 |
-| 22 | Hand-made Berry Sauce | 55.000 |
-| 23 | Hand-made Pesto Sauce | 40.000 |
+| 19 | Hand-made Sour Cream | 45.000 |
+| 20 | Hand-made Mayonnaise | 40.000 |
+| 21 | Honey Mustard Sauce | 50.000 |
+| 22 | Creamy Tzatziki Sauce | 55.000 |
+| 23 | Hand-made Berry Sauce | 55.000 |
+| 24 | Hand-made Pesto Sauce | 40.000 |
 
 **Drinks**
 
 | # | English | Tiếng Việt | Price |
 |---|---|---|---|
-| 24 | Russian Apple Tea | Nước đun táo giãi nhiệt | 25.000 |
-| 25 | Kvas | Nước lúa mạch lên men | 25.000 |
-| 26 | Berry Milk-shakes | Sữa Lắc Trái Cây | 55.000 |
-| 27 | Vanilla Milk-shakes | Kem Sữa Đánh Vanilla | 50.000 |
-| 28 | Oreo Milk-shakes | Sữa Lắc Oreo | 55.000 |
-| 29 | Coca Zero | Coca Zero | 15.000 |
-| 30 | Aquafina Soda | Aquafina | 15.000 |
+| 25 | Russian Apple Tea | Nước đun táo giãi nhiệt | 25.000 |
+| 26 | Kvas | Nước lúa mạch lên men | 25.000 |
+| 27 | Berry Milk-shakes | Sữa Lắc Trái Cây | 55.000 |
+| 28 | Vanilla Milk-shakes | Kem Sữa Đánh Vanilla | 50.000 |
+| 29 | Oreo Milk-shakes | Sữa Lắc Oreo | 55.000 |
+| 30 | Coca Zero | Coca Zero | 15.000 |
+| 31 | Aquafina Soda | Aquafina | 15.000 |
 
 **Removed at the owner's instruction:** Beetroot-Apple Mixed Smoothie, 45.000
 (Nước ép củ dền táo). It is printed on the board but is not offered on the
@@ -253,7 +254,7 @@ The owner does not want reservations. Black Bird is a walk-in deli that sells
 by the 100 gram, so a booking form was the wrong shape for the business. The
 page now takes an **order** instead:
 
-- All 30 real items are orderable. The picker is **category-first**: the seven
+- All 31 real items are orderable. The picker is **category-first**: the seven
   groups are tabs, and only the chosen group is listed. Thirty rows in one
   column was a wall; this shows five to eight rows with every group one tap
   away. Tabs respond to ← / → as a tablist should.
@@ -277,11 +278,22 @@ page now takes an **order** instead:
   price. An earlier version keyed by item alone, which made a second size on
   the same pita impossible.
 - A running total is shown in đồng, in the same `85.000đ` format as the board.
-- **Send order** is the primary action. It writes the order out — every line,
-  quantity, size, line total, the grand total, the current Vũng Tàu time as the
-  pickup time, and the phone — and hands it to Telegram, ready to send. The
-  visitor picks the shop's chat and presses send. **Copy order** and the phone
-  number sit below it as fallbacks, not as the main path.
+- **Send order** is the primary action. It POSTs the order to a **Cloudflare
+  Worker** (`worker/`, deployed as `blackbird-bot`), which forwards it to the
+  shop's Telegram and returns a short reference (`BB-1234`) for the customer to
+  quote back. The Worker lives in its own repo folder and is deployed with
+  wrangler; the bot token is a **Worker secret**, never a file and never in git.
+
+  The token had to move server-side. This is a static site — every byte of
+  `assets/app.js` is readable by anyone who views source — so a bot token in the
+  page is a public key to the bot. The Worker is that missing server, and it is
+  where VietQR will go too, since a payment secret needs the same treatment.
+
+  If the Worker is unreachable, the button **does not claim the order arrived**.
+  It falls back to copying the order and says "Not sent — copied" in the active
+  language. A dead endpoint must never read as a successful order.
+- **Copy order** and the phone number sit below it as fallbacks, not as the main
+  path.
 
   An earlier version made the phone the primary action: "set the quantities,
   then call and read out your order." The owner rejected it — *"what's the
@@ -293,13 +305,14 @@ page now takes an **order** instead:
   back, so it says nothing on that point. There is deliberately **no "order
   received" success state**, because nothing was received.
 
-**What this cannot do yet.** Telegram has no way to pre-fill text into a plain
-username chat, so a shop contact always goes through the share sheet — the
-visitor picks the chat. A real bot could take the order directly, but the
-`/start` payload is capped at **64 characters**, far too small for a whole
-order, so a bot integration needs a server holding the bot token. `ORDER_BOT`
-is wired and waiting at the top of `app.js` for when that exists. **[open]** —
-owner's call on credentials and hosting.
+**Built.** The bot exists and the order path is live: the site POSTs to the
+Worker, the Worker holds the token, and orders land in the shop's Telegram. The
+earlier share-sheet fallback is gone, because it never actually sent anything.
+
+**What this still cannot do.** There is no payment. The owner's plan is
+**VietQR**, and that needs a server-held merchant secret — which is the Worker
+that now exists. **[open]** — the owner's call on the merchant account and
+whether the bot or the site becomes the system of record.
 - The page states that **ordering direct is cheaper than the delivery apps,
   which add a service fee**. The old line pointing at Foody and ShopeeFood for
   delivery has been removed at the owner's request.
@@ -363,7 +376,8 @@ menu description beyond the item names. Any way for an order placed on this page
 to reach the shop's kitchen — **[open]**, see Ordering above.
 
 **Placeholders still on the page.** Nothing about the day's programme beyond the
-amenities Foody records. `ORDER_BOT` in `app.js` is empty by design.
+amenities Foody records. Nothing in the page — the bot token and the shop's
+chat id live only as Cloudflare Worker secrets.
 
 ## Product Principles
 
@@ -399,7 +413,7 @@ assistive technology; motion respects `prefers-reduced-motion`.
    confirmed by the owner and printed on the shop's own visit card. The page
    shows it as the address and names `N4/4 Bầu Sen 6` as the older board
    wording.
-3. **The menu is 30 items because the boards have 31, less the two excluded.**
+3. **The menu is 31 items: the boards have 32, less the two excluded.**
    If the kitchen sells more, they must be added in **two places**: the `.board`
    list in `index.html` and the `ITEMS` table in `assets/app.js`. The order
    builder carries its own copy of the items and prices, and the two will drift

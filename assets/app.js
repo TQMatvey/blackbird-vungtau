@@ -21,17 +21,16 @@
   var TZ = 'Asia/Ho_Chi_Minh';
 
   /* -- where orders go ---------------------------------------------
-     Send order opens Telegram with the order written out and ready to
-     send, so the visitor picks the shop's chat and presses send. This
-     page never claims the order arrived — it has no server and no way
-     to hear back, so the button is the only claim being made.
+     Send order POSTs the order to the bot's Worker, which holds the
+     Telegram token server-side and forwards it to the shop. The token is
+     never in this file — it is a Worker secret, because every byte served
+     from this page is downloadable and a bot token in client-side
+     JavaScript is a public key to the bot.
 
-     Telegram has no way to pre-fill text into a plain username chat, so
-     a shop contact always goes through the share sheet. A real bot
-     could take the order directly, but the /start payload is capped at
-     64 characters — far too small for a whole order — so that needs a
-     server holding the bot token. Set ORDER_BOT once that exists. */
-  var ORDER_BOT = '';         // e.g. 'blackbird_order_bot'
+     If the Worker is unreachable the button must not pretend the order
+     arrived, so it falls back to copying the order, which at least leaves
+     the customer with something. */
+  var ORDER_API = 'https://blackbird-bot.maybeetube.workers.dev/order';
   var SHOP_PHONE = '038 226 4034';
 
   /* Vũng Tàu time, whatever time zone the visitor's phone is in.
@@ -74,6 +73,7 @@
       open: 'Open now', until: 'until', opensAt: 'Opens at', closed: 'Closed', today: 'today',
       total: 'Total',
       copied: 'Copied', less: 'One fewer', more: 'One more', add: 'Add',
+      sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
       pickup: 'Pickup',
       size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
     },
@@ -81,6 +81,7 @@
       open: 'Đang mở cửa', until: 'đến', opensAt: 'Mở cửa lúc', closed: 'Đã đóng cửa', today: 'hôm nay',
       total: 'Tổng',
       copied: 'Đã chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
+      sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
       pickup: 'Lấy tại quán',
       size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
       items: function (c) { return c + ' món trong đơn của bạn'; }
@@ -89,6 +90,7 @@
       open: 'Открыто', until: 'до', opensAt: 'Открывается в', closed: 'Закрыто', today: 'сегодня',
       total: 'Итого',
       copied: 'Скопировано', less: 'На одну меньше', more: 'Добавить', add: 'Добавить',
+      sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
       pickup: 'Самовывоз',
       size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
       // Russian takes three plural forms, not two
@@ -266,6 +268,7 @@
     { g: 3, price: 180000, en: 'Mushrooms Mixed Pie',            vi: 'Bánh nướng nấm',            ru: 'Пирог с грибами' },
 
     { g: 4, price: 70000,  en: 'Napoleon Cake',                  vi: 'Bánh Napoleon',              ru: 'Наполеон' },
+    { g: 4, price: 500000, en: 'Full Napoleon Cake',            vi: 'Bánh Napoleon nguyên cái',   ru: 'Наполеон целый' },
 
     { g: 5, price: 20000,  en: 'Hand Made Pita Bread',           vi: 'Vỏ bánh Pitas thủ công',     ru: 'Питный хлеб' },
     { g: 5, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối chua',       ru: 'Домашние соленья' },
@@ -578,29 +581,62 @@
     return lines.join('\n');
   }
 
+  function orderLines() {
+    var lang = document.documentElement.getAttribute('data-lang') || 'en';
+    var t = T();
+    var out = [];
+    for (var key in cart) {
+      if (!cart.hasOwnProperty(key)) continue;
+      var p = key.split(':');
+      var i = parseInt(p[0], 10);
+      var s = parseInt(p[1], 10);
+      var it = ITEMS[i];
+      var nm = (lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en);
+      out.push(cart[key] + ' × ' + nm + (it.sizes ? ' · ' + t.size[s] : '') +
+        ' — ' + vnd(priceOf(i, s) * cart[key]));
+    }
+    return out;
+  }
+
   function sendOrder(btn) {
     if (cartCount() === 0) return;
     var text = orderText();
+    var lines = orderLines();
+    var busy = function (msg) { flash(btn, msg); };
 
-    if (ORDER_BOT) {
-      window.open('https://t.me/' + ORDER_BOT, '_blank', 'noopener');
+    if (!ORDER_API) {
+      fallbackCopy(text, function () { busy(T().copied); });
       return;
     }
 
-    // no url= parameter: the shop's real web address is not known yet,
-    // and a made-up one would ride along in every order
-    var url = 'https://t.me/share/url?text=' + encodeURIComponent(text);
-    var w = window.open(url, '_blank', 'noopener');
-    if (!w) {
-      // pop-up blocked, or Telegram is not installed: the order is
-      // still worth having, so put it on the clipboard instead
-      var done = function () { flash(btn, T().copied); };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+    busy(T().sending);
+    fetch(ORDER_API, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        lines: lines,
+        total: vnd(cartTotal()),
+        pickup: T().pickup + ' ' + hhmm(shopNow().mins),
+        customer_chat_id: null,
+      })
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      if (res.ok && res.j && res.j.ok) {
+        busy(T().sent + ' ' + res.j.ref);
       } else {
-        fallbackCopy(text, done);
+        // The order did not reach the shop. Say so, and still hand the
+        // customer something they can read out or paste.
+        var err = (res.j && res.j.error) || 'unknown';
+        fallbackCopy(text, function () {
+          busy(T().notSent);
+        });
+        if (window.console) console.warn('order not delivered:', err);
       }
-    }
+    }).catch(function (e) {
+      fallbackCopy(text, function () { busy(T().notSent); });
+      if (window.console) console.warn('order request failed:', e);
+    });
   }
 
   function wireOrder() {
