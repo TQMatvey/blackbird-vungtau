@@ -14,51 +14,109 @@
  *
  *   GET  /health   -> { ok: true }
  *
- *   POST /vietqr/token              VietQR Get Token, Basic-authenticated
- *   POST /vietqr/transaction-sync   balance-change webhook, signature-checked
- *   GET  /vietqr/status             which VietQR features are configured
+ *   POST /vietqr/sync          register this site with VietQR (once)
+ *   POST /vietqr/qr            create a payment QR for an order
+ *   POST /vietqr/paid          VietQR balance-change webhook
+ *   POST /vietqr/check         confirm an order straight from VietQR
+ *   GET  /vietqr/status        which VietQR pieces are configured
  *
  * Secrets (never in this file, never in git):
  *   TELEGRAM_BOT_TOKEN  the bot token
  *   SHOP_CHAT_ID        the Telegram chat that receives orders
  *   WEBHOOK_URL         this Worker's own public URL
- *   VIETQR_SECRET       secret key VietQR signs callbacks with
- *   VIETQR_USER         the Basic-auth username declared to VietQR
- *   VIETQR_PASS         the Basic-auth password declared to VietQR
- *   VIETQR_MERCHANT_ID  merchant id declared to VietQR (no diacritics)
+ *   SITE_URL            the public site, registered with VietQR
+ *   VIETQR_USER         username VietQR issued for Get Token
+ *   VIETQR_PASS         password VietQR issued for Get Token
+ *   VIETQR_BANK_CODE    MB or BIDV
+ *   VIETQR_BANK_ACCOUNT receiving account number
+ *   VIETQR_BANK_NAME    account holder, no diacritics
  */
 
 const BOT = '@tqblackbirdbot';
 
 /* ------------------------------------------------------------------
-   VietQR Host2Host — the receiving side.
+   VietQR, Host2Client — the ecommerce model.
 
-   VietQR calls *us*. Two endpoints:
+   The first pass here implemented Host2Host, where the merchant hosts
+   Get Token and Transaction Sync and VietQR calls in. That is the wrong
+   product for one restaurant site: it needs a merchant connection
+   declaration (whose published form, vietqr.vn/merchant/request, now
+   404s anyway) and a live endpoint before the application can be
+   approved.
 
-   /vietqr/token             VietQR presents Basic auth (the username and
-                             password we declared) and gets a short-lived
-                             bearer token, which it then sends on the other
-                             calls. Per VietQR's docs that token lives about
-                             59 seconds, so it is issued per request and
-                             never cached.
+   Host2Client is the other way round. We call VietQR:
 
-   /vietqr/transaction-sync  VietQR posts every incoming transfer here. The
-                             body is signed and the signature is checked
-                             before the order is treated as paid. An
-                             unverified webhook is an open door: anyone who
-                             finds the URL could post a fake "paid" order.
+     POST {base}/vqr/api/peripheral/ecommerce/token_generate   Basic auth
+     POST {base}/vqr/api/ecommerce                            Bearer
+     POST {base}/vqr/api/qr/generate-customer                 Bearer
+     POST {base}/vqr/api/ecommerce-transactions/check-order   Bearer
 
-   The exact wire contract is fixed when VietQR issues the account, so the
-   shapes below follow their published Host2Host documentation and are
-   expected to be confirmed against the real API doc.
+   and VietQR posts balance changes to the webhook we hand them. Test is
+   dev.vietqr.org; production is api.vietqr.org.
+
+   One important property: the documented Host2Client webhook payload
+   carries no signature. So the webhook is treated as a *hint* that money
+   moved, and /vietqr/paid confirms the order against VietQR's own
+   check-order API before anything is marked paid or the shop is told.
+   A webhook anyone can POST to must never be the thing that decides a
+   payment happened.
    ------------------------------------------------------------------ */
 
-const TOKEN_TTL_SECONDS = 59;
+const VQ_TEST = 'https://dev.vietqr.org';
+const VQ_PROD = 'https://api.vietqr.org';
+
+function vietqrBase(env) {
+  // flip VIETQR_LIVE=1 once the account is live and the contract is signed
+  return env.VIETQR_LIVE === '1' ? VQ_PROD : VQ_TEST;
+}
+
+// A single in-memory token, refreshed on demand. A Worker isolate may be
+// recycled at any time, which only costs one extra Get Token call.
+let tokenCache = { token: null, at: 0 };
+
+async function vietqrToken(env) {
+  if (!env.VIETQR_USER || !env.VIETQR_PASS) throw new Error('vietqr credentials not configured');
+  const now = Date.now();
+  if (tokenCache.token && now - tokenCache.at < 240000) return tokenCache.token;
+
+  const basic = btoa(`${env.VIETQR_USER}:${env.VIETQR_PASS}`);
+  const r = await fetch(`${vietqrBase(env)}/vqr/api/peripheral/ecommerce/token_generate`, {
+    method: 'POST',
+    headers: { authorization: `Basic ${basic}`, 'content-type': 'application/json' },
+  });
+  const body = await r.json().catch(() => null);
+  if (!r.ok || !body) throw new Error(`vietqr get token: HTTP ${r.status}`);
+  const tok = body.access_token || body.data && body.data.accessToken;
+  if (!tok) throw new Error('vietqr get token: no token in response');
+  tokenCache = { token: tok, at: now };
+  return tok;
+}
+
+async function vietqrPost(env, path, payload) {
+  const tok = await vietqrToken(env);
+  const r = await fetch(vietqrBase(env) + path, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${tok}`, 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const body = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(`vietqr ${path}: HTTP ${r.status} ${JSON.stringify(body).slice(0, 200)}`);
+  return body;
+}
+
+
+/* ------------------------------------------------------------------
+   MD5.
+
+   WebCrypto has no MD5 and VietQR authenticates several calls with it.
+   The implementation below is covered by the known-answer tests in
+   md5.test.mjs, which run before anything is deployed.
+   ------------------------------------------------------------------ */
+
+
 
 function md5Hex(input) {
-  // WebCrypto has no MD5, and VietQR signs with MD5. This is a compact,
-  // self-contained implementation; it is covered by the known-answer tests
-  // in md5.test.mjs, which run before anything is deployed.
+  // see the note above; kept self-contained so the Worker has no dependencies
   const K = new Array(64);
   for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296);
 
@@ -108,42 +166,27 @@ function md5Hex(input) {
   return [a0, b0, c0, d0].map(le).join('');
 }
 
-// VietQR's signature data is
-//   {transactionId}{amount, zero-padded to 10 digits}{transactionTime}{orderId}
-function signatureData(t) {
-  const amount = String(t.amount || '').padStart(10, '0');
-  return `${t.transactionId}${amount}${t.transactionTime}${t.orderId}`;
+// VietQR's check-order call is authenticated with a checksum:
+//   MD5(bankAccount + username)
+function orderChecksum(env) {
+  return md5Hex(String(env.VIETQR_BANK_ACCOUNT || '') + String(env.VIETQR_USER || ''));
 }
 
-function verifySignature(secret, t, given) {
-  if (!secret || !given) return false;
-  const expected = md5Hex(secret + signatureData(t));
-  // constant-time-ish compare; these are short so it hardly matters, but a
-  // length leak is still a leak
-  if (expected.length !== given.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
-  return diff === 0;
-}
+// The transfer content VietQR shows must be Vietnamese without diacritics and
+// without punctuation, capped at 19 characters.
+//
+// Folding has to be real, not a deletion: stripping non-ASCII outright turns
+// "Bánh" into "Bnh". NFD splits the accents off so they can be removed while
+// the letter survives. đ is the exception — it is a distinct letter, not a
+// base plus a mark, so NFD leaves it alone and it needs an explicit mapping.
+const VIET_D = { 'đ': 'd', 'Đ': 'D' };
 
-function checksum(secret, userId) {
-  return md5Hex(secret + userId);
-}
-
-function basicAuthOk(request, env) {
-  const h = request.headers.get('authorization') || '';
-  if (!/^basic /i.test(h)) return false;
-  let pair;
-  try {
-    pair = atob(h.slice(6).trim());
-  } catch {
-    return false;
-  }
-  const i = pair.indexOf(':');
-  if (i < 0) return false;
-  const user = pair.slice(0, i);
-  const pass = pair.slice(i + 1);
-  return timingSafeEqual(user, env.VIETQR_USER) && timingSafeEqual(pass, env.VIETQR_PASS);
+function transferContent(ref) {
+  const folded = String(ref)
+    .replace(/[đĐ]/g, (c) => VIET_D[c])
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');   // combining diacritical marks
+  return folded.replace(/[^A-Za-z0-9]/g, '').slice(0, 19);
 }
 
 function timingSafeEqual(a, b) {
@@ -212,89 +255,175 @@ export default {
       return json({ ok: true, bot: BOT, now: new Date().toISOString() });
     }
 
-    // ---- VietQR: Get Token ---------------------------------------
-    // VietQR presents the Basic-auth credentials declared in the merchant
-    // form and receives a short-lived bearer token to use on its other
-    // calls. This is the endpoint their "Test Get Token" button probes, so
-    // it has to answer correctly before the merchant application is
-    // approved.
-    if (url.pathname === '/vietqr/token') {
+    // ---- VietQR: register this site (once) ------------------------
+    // Returns a certificate QR that the owner scans in the VietQR app to
+    // link a bank account, plus the clientId and webhook VietQR will use.
+    if (url.pathname === '/vietqr/sync' && request.method === 'POST') {
+      const site = env.SITE_URL;
       if (!env.VIETQR_USER || !env.VIETQR_PASS) {
-        return json({ ok: false, error: 'vietqr basic auth not configured' }, 503);
+        return json({ ok: false, error: 'vietqr credentials not configured' }, 503);
       }
-      if (!basicAuthOk(request, env)) {
-        return json({ ok: false, error: 'unauthorized' }, 401);
+      if (!site) return json({ ok: false, error: 'SITE_URL not configured' }, 503);
+      // checkSum = MD5(password + ":" + ecommerceSite + "VietQRAccesskey")
+      const checkSum = md5Hex(`${env.VIETQR_PASS}:${site}VietQRAccesskey`);
+      try {
+        const body = await vietqrPost(env, '/vqr/api/ecommerce', {
+          ecommerceSite: site,
+          checkSum,
+          webhook: `${env.WEBHOOK_URL}/vietqr/paid`,
+          code: 'BLACKBIRD',
+        });
+        return json({ ok: true, site, response: body });
+      } catch (err) {
+        return json({ ok: false, error: String(err && err.message || err) }, 502);
       }
-      const seed = crypto.randomUUID().replace(/-/g, '');
-      return json({
-        code: '00',
-        message: 'Success',
-        data: {
-          accessToken: seed,
-          tokenType: 'bearer',
-          expiresIn: String(TOKEN_TTL_SECONDS),
-        },
-      });
     }
 
-    // ---- VietQR: which features are wired up ---------------------
-    if (request.method === 'GET' && url.pathname === '/vietqr/status') {
-      return json({
-        ok: true,
-        merchantId: env.VIETQR_MERCHANT_ID || null,
-        basicAuthConfigured: Boolean(env.VIETQR_USER && env.VIETQR_PASS),
-        secretConfigured: Boolean(env.VIETQR_SECRET),
-        endpoints: {
-          token: '/vietqr/token',
-          transactionSync: '/vietqr/transaction-sync',
-        },
-      });
-    }
-
-    // ---- VietQR: transaction sync (balance-change webhook) -------
-    if (url.pathname === '/vietqr/transaction-sync') {
-      if (request.method !== 'POST') return json({ ok: false, error: 'POST only' }, 405);
-      if (!env.VIETQR_SECRET) {
-        return json({ ok: false, error: 'secret not configured' }, 503);
-      }
-
+    // ---- VietQR: a payment QR for an order ------------------------
+    if (url.pathname === '/vietqr/qr' && request.method === 'POST') {
       let body;
       try {
         body = await request.json();
       } catch {
         return json({ ok: false, error: 'bad json' }, 400);
       }
-
-      // The checksum guards the request; the signature guards the data.
-      // Both must pass before an order counts as paid.
-      const wantChecksum = checksum(env.VIETQR_SECRET, body.userId || env.VIETQR_MERCHANT_ID || '');
-      if (body.checksum && !timingSafeEqual(String(body.checksum).toLowerCase(), wantChecksum)) {
-        return json({ ok: false, error: 'bad checksum' }, 401);
+      const ref = body.ref;
+      const amount = Math.round(Number(body.amount) || 0);
+      if (!ref || !amount) return json({ ok: false, error: 'ref and amount are required' }, 400);
+      if (!env.VIETQR_BANK_ACCOUNT || !env.VIETQR_BANK_CODE || !env.VIETQR_BANK_NAME) {
+        return json({ ok: false, error: 'bank details not configured' }, 503);
       }
-      if (!verifySignature(env.VIETQR_SECRET, body, String(body.signature || '').toLowerCase())) {
-        return json({ ok: false, error: 'bad signature' }, 401);
+      try {
+        const vq = await vietqrPost(env, '/vqr/api/qr/generate-customer', {
+          bankCode: env.VIETQR_BANK_CODE,
+          bankAccount: env.VIETQR_BANK_ACCOUNT,
+          userBankName: env.VIETQR_BANK_NAME,
+          amount: String(amount),
+          content: transferContent(ref),
+          transType: 'C',
+          qrType: 3,               // semi-dynamic: amount is per order
+          orderId: ref,            // echoed back on payment, so we can match
+          terminalCode: '',
+          subTerminalCode: '',
+        });
+        return json({ ok: true, ref, qrCode: vq.qrCode, qrLink: vq.qrLink, transactionRefId: vq.transactionRefId });
+      } catch (err) {
+        return json({ ok: false, error: String(err && err.message || err) }, 502);
+      }
+    }
+
+    // ---- VietQR: balance-change webhook ---------------------------
+    // The documented Host2Client payload carries no signature, so this is
+    // treated as a hint and nothing more: it triggers a confirmation
+    // against VietQR's own check-order API. A webhook anyone can POST to
+    // must never be what decides a payment happened.
+    if (url.pathname === '/vietqr/paid' && request.method === 'POST') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response('ok');
+      }
+      // N05 = incoming transfer, N22 = a bank account was linked
+      const kind = body.notificationType;
+      if (kind === 'N22') {
+        ctx.waitUntil(
+          telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+            chat_id: env.SHOP_CHAT_ID,
+            text: `Bank account linked: <code>${esc(body.bankAccount || '—')}</code> (${esc(body.bankCode || '')})`,
+            parse_mode: 'HTML',
+          }).catch(() => null)
+        );
+        return json({ ok: true, seen: 'N22' });
+      }
+      if (kind !== 'N05') return json({ ok: true, ignored: true, notificationType: kind });
+
+      const ref = body.orderId;
+      const amount = Number(body.amount) || 0;
+
+      // Confirm before telling the shop the money is in.
+      let confirmed = false;
+      try {
+        const r = await vietqrPost(env, '/vqr/api/ecommerce-transactions/check-order', {
+          bankAccount: env.VIETQR_BANK_ACCOUNT,
+          bankCode: env.VIETQR_BANK_CODE,
+          type: '0',
+          value: ref,
+          checkSum: orderChecksum(env),
+        });
+        const rows = Array.isArray(r) ? r : (r && r.data) || [];
+        const hit = rows.find(x => x && x.orderId === ref);
+        // status 1 = paid
+        confirmed = Boolean(hit && Number(hit.status) === 1);
+      } catch (err) {
+        if (window && window.console) window.console.warn('check-order failed', err);
       }
 
-      // Tell the shop. This is the whole point: the money arrived, and the
-      // person who has to act on it should not have to open a bank app.
-      const amount = (Number(body.amount) || 0).toLocaleString('vi-VN');
-      const paid = [
-        `<b>Payment received</b>`,
-        '',
-        `Order: ${esc(body.orderId || body.referenceNumber || '—')}`,
-        `Amount: ${amount} đ`,
-        `Bank account: ${esc(body.bankAccount || '—')}`,
-        `Time: ${esc(body.transactionTime || '—')}`,
-      ].join('\n');
+      if (!confirmed) {
+        // Say so rather than quietly ignoring: an unconfirmed webhook means
+        // the webhook and VietQR disagree, which someone should look at.
+        ctx.waitUntil(
+          telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+            chat_id: env.SHOP_CHAT_ID,
+            text: `A transfer arrived for <code>${esc(ref || 'unknown')}</code> but VietQR has not confirmed it paid. Check before serving.`,
+            parse_mode: 'HTML',
+          }).catch(() => null)
+        );
+        return json({ ok: true, confirmed: false, ref });
+      }
+
       ctx.waitUntil(
         telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
           chat_id: env.SHOP_CHAT_ID,
-          text: paid,
+          text: [
+            '<b>Payment confirmed</b>',
+            '',
+            `Order: <code>${esc(ref)}</code>`,
+            `Amount: ${amount.toLocaleString('vi-VN')} đ`,
+            `Bank: ${esc(env.VIETQR_BANK_CODE)} ${esc(env.VIETQR_BANK_ACCOUNT)}`,
+          ].join('\n'),
           parse_mode: 'HTML',
         }).catch(() => null)
       );
+      return json({ ok: true, confirmed: true, ref });
+    }
 
-      return json({ code: '00', message: 'Success' });
+    // ---- VietQR: ask about one order directly --------------------
+    if (url.pathname === '/vietqr/check' && request.method === 'POST') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ ok: false, error: 'bad json' }, 400);
+      }
+      if (!body.ref) return json({ ok: false, error: 'ref required' }, 400);
+      try {
+        const r = await vietqrPost(env, '/vqr/api/ecommerce-transactions/check-order', {
+          bankAccount: env.VIETQR_BANK_ACCOUNT,
+          bankCode: env.VIETQR_BANK_CODE,
+          type: '0',
+          value: body.ref,
+          checkSum: orderChecksum(env),
+        });
+        const rows = Array.isArray(r) ? r : (r && r.data) || [];
+        const hit = rows.find(x => x && x.orderId === body.ref);
+        return json({ ok: true, found: Boolean(hit), status: hit ? Number(hit.status) : null, row: hit || null });
+      } catch (err) {
+        return json({ ok: false, error: String(err && err.message || err) }, 502);
+      }
+    }
+
+    // ---- VietQR: which pieces are wired up -----------------------
+    if (request.method === 'GET' && url.pathname === '/vietqr/status') {
+      return json({
+        ok: true,
+        model: 'Host2Client (ecommerce)',
+        environment: env.VIETQR_LIVE === '1' ? 'production' : 'test',
+        site: env.SITE_URL || null,
+        credentialsConfigured: Boolean(env.VIETQR_USER && env.VIETQR_PASS),
+        bankConfigured: Boolean(env.VIETQR_BANK_ACCOUNT && env.VIETQR_BANK_CODE && env.VIETQR_BANK_NAME),
+        endpoints: { sync: '/vietqr/sync', qr: '/vietqr/qr', paid: '/vietqr/paid', check: '/vietqr/check' },
+      });
     }
 
     // ---- one-time / re-deploy bootstrap ---------------------------

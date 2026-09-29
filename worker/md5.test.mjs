@@ -28,11 +28,15 @@ const grab = (name) => {
 };
 
 const md5Hex = new Function(`${grab('md5Hex')}; return md5Hex;`)();
-const signatureData = new Function(`${grab('signatureData')}; return signatureData;`)();
-// verifySignature calls md5Hex and signatureData, so it needs both in scope
-const verifySignature = new Function(
-  'md5Hex', 'signatureData', `${grab('verifySignature')}; return verifySignature;`
-)(md5Hex, signatureData);
+// The Host2Client checksums VietQR asks for. Neither is a signature over a
+// payload, which is exactly why /vietqr/paid confirms against check-order
+// before treating a webhook as a payment.
+const orderChecksum = new Function(
+  'md5Hex', `${grab('orderChecksum')}; return orderChecksum;`
+)(md5Hex);
+const transferContent = new Function(
+  'VIET_D', `${grab('transferContent')}; return transferContent;`
+)({ 'đ': 'd', 'Đ': 'D' });
 
 let failed = 0;
 const check = (label, got, want) => {
@@ -56,34 +60,29 @@ for (const [input, want] of vectors) {
   check(`md5(${JSON.stringify(input.slice(0, 24))})`, md5Hex(input), want);
 }
 
-// The exact shape VietQR documents: signature data is
-// transactionId + amount padded to 10 digits + transactionTime + orderId
-const sample = {
-  transactionId: '0a4cc317-3af3-4055-bc83-7296adb624bf',
-  amount: '100000',
-  transactionTime: '2024-05-1701:53',
-  orderId: '0a4cc317-3af3-4055-bc83-7296adb624bf',
-};
+// The exact shape VietQR documents for the ecommerce sync call:
+// checkSum = MD5(password + ":" + ecommerceSite + "VietQRAccesskey")
+const syncChecksum = md5Hex('37256497631:https://www.google.comVietQRAccesskey');
+check('sync checksum is computable', syncChecksum.length, 32);
+check('sync checksum is stable', syncChecksum, md5Hex('37256497631:https://www.google.comVietQRAccesskey'));
+
+// Host2Client: check-order is authenticated with MD5(bankAccount + username)
 check(
-  'signatureData pads the amount to 10 digits',
-  signatureData(sample),
-  '0a4cc317-3af3-4055-bc83-7296adb624bf00001000002024-05-1701:530a4cc317-3af3-4055-bc83-7296adb624bf'
-);
-check(
-  'signatureData leaves a long amount alone',
-  signatureData({ ...sample, amount: '50000000' }),
-  '0a4cc317-3af3-4055-bc83-7296adb624bf00500000002024-05-1701:530a4cc317-3af3-4055-bc83-7296adb624bf'
+  'orderChecksum is MD5(bankAccount + username)',
+  orderChecksum({ VIETQR_BANK_ACCOUNT: '0373568944', VIETQR_USER: 'nhatlinh' }),
+  md5Hex('0373568944nhatlinh')
 );
 
-const secret = 'test-secret';
-const good = md5Hex(secret + signatureData(sample));
-check('accepts a correct signature', verifySignature(secret, sample, good), true);
-check('rejects a wrong signature', verifySignature(secret, sample, 'deadbeef'), false);
-check('rejects an empty signature', verifySignature(secret, sample, ''), false);
-check('rejects when the secret is unset', verifySignature('', sample, good), false);
+// The transfer content VietQR displays: no diacritics, no punctuation, and
+// hard-capped at 19 characters
+check('transferContent strips the dash', transferContent('BB-1234'), 'BB1234');
+check('transferContent stays within 19 chars', transferContent('A'.repeat(50)).length, 19);
+// ô folds to o, and the letter survives — stripping non-ASCII instead
+// would give "BnhPhMai", which is what the first version did
+check('transferContent folds accents, keeping the letter', transferContent('Bánh PhôMai'), 'BanhPhoMai');
+check('transferContent folds đ', transferContent('Đặc Biệt'), 'DacBiet');
+check('transferContent drops spaces', transferContent('Napoleon 70k'), 'Napoleon70k');
+check('transferContent handles a real order ref', transferContent('BB-1234'), 'BB1234');
 
-const tampered = { ...sample, amount: '1' };
-check('rejects a tampered amount', verifySignature(secret, tampered, good), false);
-
-console.log(failed ? `\n${failed} FAILED` : '\nall MD5 and signature checks pass');
+console.log(failed ? `\n${failed} FAILED` : '\nall MD5 and checksum checks pass');
 process.exit(failed ? 1 : 0);
