@@ -251,8 +251,39 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // Anyone who opens the Worker directly should get something that says
+    // what it is, rather than a bare {"error":"not found"} that looks like
+    // a broken deployment.
+    if (url.pathname === '/') {
+      return json({
+        ok: true,
+        service: 'Black Bird orders',
+        bot: BOT,
+        site: env.SITE_URL || null,
+        routes: {
+          'GET /health': 'liveness',
+          'POST /order': 'receive an order from the site, send it to Telegram',
+          'POST /telegram': 'Telegram webhook (set automatically by /setup)',
+          'GET /setup': 're-register the Telegram webhook',
+          'GET /vietqr/status': 'which VietQR pieces are configured',
+          'POST /vietqr/sync': 'register this site with VietQR, returns a certificate QR',
+          'POST /vietqr/qr': 'create a payment QR for an order',
+          'POST /vietqr/paid': 'VietQR balance-change webhook',
+          'POST /vietqr/check': 'ask VietQR whether an order is paid',
+        },
+      });
+    }
+
     if (request.method === 'GET' && url.pathname === '/health') {
       return json({ ok: true, bot: BOT, now: new Date().toISOString() });
+    }
+
+    // A known path reached with the wrong verb is a 405, not a 404. Saying
+    // "not found" for a GET on /order hides the fact that the route exists.
+    const POST_ONLY = ['/order', '/telegram', '/vietqr/sync', '/vietqr/qr',
+                       '/vietqr/paid', '/vietqr/check'];
+    if (POST_ONLY.includes(url.pathname) && request.method !== 'POST') {
+      return json({ ok: false, error: 'POST only', allow: 'POST' }, 405);
     }
 
     // ---- VietQR: register this site (once) ------------------------
