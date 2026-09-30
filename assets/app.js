@@ -74,6 +74,7 @@
       total: 'Total',
       copied: 'Copied', less: 'One fewer', more: 'One more', add: 'Add',
       sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
+      empty: 'Nothing to send yet',
       pickup: 'Pickup',
       size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
     },
@@ -82,6 +83,7 @@
       total: 'Tổng',
       copied: 'Đã chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
       sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
+      empty: 'Chưa có món nào để gửi',
       pickup: 'Lấy tại quán',
       size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
       items: function (c) { return c + ' món trong đơn của bạn'; }
@@ -91,6 +93,7 @@
       total: 'Итого',
       copied: 'Скопировано', less: 'На одну меньше', more: 'Добавить', add: 'Добавить',
       sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
+      empty: 'Пока нечего отправлять',
       pickup: 'Самовывоз',
       size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
       // Russian takes three plural forms, not two
@@ -599,10 +602,16 @@
   }
 
   function sendOrder(btn) {
-    if (cartCount() === 0) return;
+    var busy = function (msg) { flash(btn, msg); };
+
+    // An empty order cannot be sent, and returning in silence is the same
+    // thing to the person pressing the button as a send that failed. Say so.
+    if (cartCount() === 0) {
+      busy(T().empty);
+      return;
+    }
     var text = orderText();
     var lines = orderLines();
-    var busy = function (msg) { flash(btn, msg); };
 
     if (!ORDER_API) {
       fallbackCopy(text, function () { busy(T().copied); });

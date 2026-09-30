@@ -48,6 +48,19 @@ headers ride along in `_headers`.
 Never put the Cloudflare token, or the Telegram bot token, anywhere the page can
 read them. This is a static frontend: every byte shipped is downloadable.
 
+### Why the build stamps a version
+
+`build.sh` also rewrites the `?v=` on the stylesheet and the script in
+`dist/index.html` to a hash of the assets themselves. `_headers` serves
+`/assets/*` as `immutable` for a year, which is right *because* the URL changes
+when the file does. Without the stamp, a visitor keeps running the JavaScript
+they first downloaded: the Send order button kept opening a Telegram share page
+for a year after the commit that replaced it with a real send, because their
+cached `assets/app.js` was never refetched.
+
+Leave the `?v=1` in `index.html` alone — it is a placeholder for local work, and
+the build overwrites it. Do not remove the query string.
+
 
 ## What's here
 
@@ -98,7 +111,13 @@ GET  /health     liveness
 GET  /setup      (re)register the Telegram webhook — needed after a redeploy
 POST /order      { lines, total, pickup } -> { ok, ref }
 POST /telegram   Telegram webhook
+OPTIONS any of the above   the CORS preflight the browser sends first
 ```
+
+The site and the Worker are on different origins, so the browser will not send
+an order until the Worker answers that preflight. `SITE_URL` is the allow-list,
+and it is the only origin answered — `*` would be an open relay into the shop's
+Telegram. Without `SITE_URL` the Worker fails closed and sends nothing.
 
 The bot token is a **Worker secret**, not a file and not in git. That is not
 incidental: this is a static site, so anything in `assets/app.js` is readable by
@@ -108,6 +127,16 @@ anyone who views source. The token is set with:
 npx wrangler --cwd worker secret put TELEGRAM_BOT_TOKEN
 npx wrangler --cwd worker secret put SHOP_CHAT_ID
 npx wrangler --cwd worker secret put WEBHOOK_URL
+npx wrangler --cwd worker secret put SITE_URL
+```
+
+### Testing the Worker
+
+Node, no Workers runtime needed — the tests import `worker/index.js` directly:
+
+```
+node worker/md5.test.mjs    MD5 and the VietQR checksums, against RFC 1321
+node worker/cors.test.mjs   the preflight, the allow-list, and a whole order
 ```
 
 **Not done yet:** VietQR payment. The worker is the place it will live, since
