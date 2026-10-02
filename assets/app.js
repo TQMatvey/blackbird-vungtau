@@ -74,6 +74,7 @@
       total: 'Total',
       copied: 'Copied', less: 'One fewer', more: 'One more', add: 'Add',
       sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
+      notSentNoCopy: 'Not sent — copy failed',
       empty: 'Nothing to send yet',
       pickup: 'Pickup',
       size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
@@ -83,6 +84,7 @@
       total: 'Tổng',
       copied: 'Đã chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
       sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
+      notSentNoCopy: 'Chưa gửi — không chép được',
       empty: 'Chưa có món nào để gửi',
       pickup: 'Lấy tại quán',
       size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
@@ -93,6 +95,7 @@
       total: 'Итого',
       copied: 'Скопировано', less: 'На одну меньше', more: 'Добавить', add: 'Добавить',
       sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
+      notSentNoCopy: 'Не отправлено — не удалось скопировать',
       empty: 'Пока нечего отправлять',
       pickup: 'Самовывоз',
       size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
@@ -614,14 +617,23 @@
     var lines = orderLines();
 
     if (!ORDER_API) {
-      fallbackCopy(text, function () { busy(T().copied); });
+      fallbackCopy(text, function (ok) { busy(ok ? T().copied : T().notSentNoCopy); });
       return;
     }
 
     busy(T().sending);
+
+    // A request that never settles leaves the button reading "Sending…"
+    // forever, which reads as though the order is on its way. Give it a
+    // deadline and say so if it passes. 12s: the bot call is one round
+    // trip to Telegram, so anything slower is a failure, not a wait.
+    var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 12000);
+
     fetch(ORDER_API, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
+      signal: ctrl ? ctrl.signal : undefined,
       body: JSON.stringify({
         lines: lines,
         total: vnd(cartTotal()),
@@ -629,6 +641,7 @@
         customer_chat_id: null,
       })
     }).then(function (r) {
+      clearTimeout(timer);
       return r.json().then(function (j) { return { ok: r.ok, j: j }; });
     }).then(function (res) {
       if (res.ok && res.j && res.j.ok) {
@@ -637,13 +650,14 @@
         // The order did not reach the shop. Say so, and still hand the
         // customer something they can read out or paste.
         var err = (res.j && res.j.error) || 'unknown';
-        fallbackCopy(text, function () {
-          busy(T().notSent);
+        fallbackCopy(text, function (ok) {
+          busy(ok ? T().notSent : T().notSentNoCopy);
         });
         if (window.console) console.warn('order not delivered:', err);
       }
     }).catch(function (e) {
-      fallbackCopy(text, function () { busy(T().notSent); });
+      clearTimeout(timer);
+      fallbackCopy(text, function (ok) { busy(ok ? T().notSent : T().notSentNoCopy); });
       if (window.console) console.warn('order request failed:', e);
     });
   }
@@ -704,7 +718,7 @@
       copy.addEventListener('click', function () {
         if (cartCount() === 0) return;
         var text = orderText();
-        var done = function () { flash(copy, T().copied); };
+        var done = function (ok) { flash(copy, ok ? T().copied : T().notSentNoCopy); };
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
         } else {
@@ -722,7 +736,12 @@
   }
 
   /* clipboard API needs a secure context, which file:// and plain
-     http are not — so there is a selection-based path behind it. */
+     http are not — so there is a selection-based path behind it.
+
+     done(ok) is always called, true or false. When this fell out of the
+     failure branch silently, a browser that refused both copy paths left
+     the button reading "Sending…" forever: the order had not arrived, the
+     clipboard had nothing, and the page said neither. */
   function fallbackCopy(text, done) {
     var ta = document.createElement('textarea');
     ta.value = text;
@@ -733,7 +752,7 @@
     var ok = false;
     try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
     document.body.removeChild(ta);
-    if (ok) done();
+    done(ok);
   }
 
   var flashTimer = null;
