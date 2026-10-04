@@ -7,11 +7,19 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN
 
+# Code and CSS carry a ?v= stamp that build.sh rewrites on every deploy, so
+# the long-lived cache below is safe for them: a changed file is a changed
+# URL. The stamp is what makes that true, so keep it.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+# The photographs are large and never edited in place under the same name,
+# so they are cached for a year with no stamp of their own.
 /assets/img/*
   Cache-Control: public, max-age=31536000, immutable
 
+# The markup is the one thing that must never be stale: it carries the ?v=
+# stamps, so a cached index.html is a page still pointing at old assets.
+# Cached at the edge for a minute, revalidated by the browser after that.
 /index.html
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: public, max-age=60, must-revalidate

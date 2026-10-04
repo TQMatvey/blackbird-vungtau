@@ -14,6 +14,9 @@
  *
  *   GET  /health   -> { ok: true }
  *
+ *   OPTIONS on any POST route -> the CORS preflight the browser sends
+ *                  before a cross-origin JSON POST from the site
+ *
  *   POST /vietqr/sync          register this site with VietQR (once)
  *   POST /vietqr/qr            create a payment QR for an order
  *   POST /vietqr/paid          VietQR balance-change webhook
@@ -249,304 +252,378 @@ function orderText(o, ref) {
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+    // The site is on a different origin, so the browser asks permission
+    // before it will send an order. Answering that here means every route
+    // below is covered by one rule instead of remembering to add a header
+    // to each response.
+    const pre = preflight(request, env);
+    if (pre) return pre;
 
-    // Anyone who opens the Worker directly should get something that says
-    // what it is, rather than a bare {"error":"not found"} that looks like
-    // a broken deployment.
-    if (url.pathname === '/') {
-      return json({
-        ok: true,
-        service: 'Black Bird orders',
-        bot: BOT,
-        site: env.SITE_URL || null,
-        routes: {
-          'GET /health': 'liveness',
-          'POST /order': 'receive an order from the site, send it to Telegram',
-          'POST /telegram': 'Telegram webhook (set automatically by /setup)',
-          'GET /setup': 're-register the Telegram webhook',
-          'GET /vietqr/status': 'which VietQR pieces are configured',
-          'POST /vietqr/sync': 'register this site with VietQR, returns a certificate QR',
-          'POST /vietqr/qr': 'create a payment QR for an order',
-          'POST /vietqr/paid': 'VietQR balance-change webhook',
-          'POST /vietqr/check': 'ask VietQR whether an order is paid',
-        },
+    return withCors(await route(request, env, ctx), request, env);
+  },
+};
+
+async function route(request, env, ctx) {
+  const url = new URL(request.url);
+
+  // Anyone who opens the Worker directly should get something that says
+  // what it is, rather than a bare {"error":"not found"} that looks like
+  // a broken deployment.
+  if (url.pathname === '/') {
+    return json({
+      ok: true,
+      service: 'Black Bird orders',
+      bot: BOT,
+      site: env.SITE_URL || null,
+      routes: {
+        'GET /health': 'liveness',
+        'POST /order': 'receive an order from the site, send it to Telegram',
+        'POST /telegram': 'Telegram webhook (set automatically by /setup)',
+        'GET /setup': 're-register the Telegram webhook',
+        'GET /vietqr/status': 'which VietQR pieces are configured',
+        'POST /vietqr/sync': 'register this site with VietQR, returns a certificate QR',
+        'POST /vietqr/qr': 'create a payment QR for an order',
+        'POST /vietqr/paid': 'VietQR balance-change webhook',
+        'POST /vietqr/check': 'ask VietQR whether an order is paid',
+      },
+    });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/health') {
+    return json({ ok: true, bot: BOT, now: new Date().toISOString() });
+  }
+
+  // A known path reached with the wrong verb is a 405, not a 404. Saying
+  // "not found" for a GET on /order hides the fact that the route exists.
+  // OPTIONS is answered above, by the preflight, so a browser asking
+  // permission never reaches this guard.
+  const POST_ONLY = ['/order', '/telegram', '/vietqr/sync', '/vietqr/qr',
+                     '/vietqr/paid', '/vietqr/check'];
+  if (POST_ONLY.includes(url.pathname) && request.method !== 'POST') {
+    return json({ ok: false, error: 'POST only', allow: 'POST' }, 405);
+  }
+
+  // ---- VietQR: register this site (once) ------------------------
+  // Returns a certificate QR that the owner scans in the VietQR app to
+  // link a bank account, plus the clientId and webhook VietQR will use.
+  if (url.pathname === '/vietqr/sync' && request.method === 'POST') {
+    const site = env.SITE_URL;
+    if (!env.VIETQR_USER || !env.VIETQR_PASS) {
+      return json({ ok: false, error: 'vietqr credentials not configured' }, 503);
+    }
+    if (!site) return json({ ok: false, error: 'SITE_URL not configured' }, 503);
+    // checkSum = MD5(password + ":" + ecommerceSite + "VietQRAccesskey")
+    const checkSum = md5Hex(`${env.VIETQR_PASS}:${site}VietQRAccesskey`);
+    try {
+      const body = await vietqrPost(env, '/vqr/api/ecommerce', {
+        ecommerceSite: site,
+        checkSum,
+        webhook: `${env.WEBHOOK_URL}/vietqr/paid`,
+        code: 'BLACKBIRD',
       });
+      return json({ ok: true, site, response: body });
+    } catch (err) {
+      return json({ ok: false, error: String(err && err.message || err) }, 502);
     }
+  }
 
-    if (request.method === 'GET' && url.pathname === '/health') {
-      return json({ ok: true, bot: BOT, now: new Date().toISOString() });
+  // ---- VietQR: a payment QR for an order ------------------------
+  if (url.pathname === '/vietqr/qr' && request.method === 'POST') {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ ok: false, error: 'bad json' }, 400);
     }
-
-    // A known path reached with the wrong verb is a 405, not a 404. Saying
-    // "not found" for a GET on /order hides the fact that the route exists.
-    const POST_ONLY = ['/order', '/telegram', '/vietqr/sync', '/vietqr/qr',
-                       '/vietqr/paid', '/vietqr/check'];
-    if (POST_ONLY.includes(url.pathname) && request.method !== 'POST') {
-      return json({ ok: false, error: 'POST only', allow: 'POST' }, 405);
+    const ref = body.ref;
+    const amount = Math.round(Number(body.amount) || 0);
+    if (!ref || !amount) return json({ ok: false, error: 'ref and amount are required' }, 400);
+    if (!env.VIETQR_BANK_ACCOUNT || !env.VIETQR_BANK_CODE || !env.VIETQR_BANK_NAME) {
+      return json({ ok: false, error: 'bank details not configured' }, 503);
     }
-
-    // ---- VietQR: register this site (once) ------------------------
-    // Returns a certificate QR that the owner scans in the VietQR app to
-    // link a bank account, plus the clientId and webhook VietQR will use.
-    if (url.pathname === '/vietqr/sync' && request.method === 'POST') {
-      const site = env.SITE_URL;
-      if (!env.VIETQR_USER || !env.VIETQR_PASS) {
-        return json({ ok: false, error: 'vietqr credentials not configured' }, 503);
-      }
-      if (!site) return json({ ok: false, error: 'SITE_URL not configured' }, 503);
-      // checkSum = MD5(password + ":" + ecommerceSite + "VietQRAccesskey")
-      const checkSum = md5Hex(`${env.VIETQR_PASS}:${site}VietQRAccesskey`);
-      try {
-        const body = await vietqrPost(env, '/vqr/api/ecommerce', {
-          ecommerceSite: site,
-          checkSum,
-          webhook: `${env.WEBHOOK_URL}/vietqr/paid`,
-          code: 'BLACKBIRD',
-        });
-        return json({ ok: true, site, response: body });
-      } catch (err) {
-        return json({ ok: false, error: String(err && err.message || err) }, 502);
-      }
+    try {
+      const vq = await vietqrPost(env, '/vqr/api/qr/generate-customer', {
+        bankCode: env.VIETQR_BANK_CODE,
+        bankAccount: env.VIETQR_BANK_ACCOUNT,
+        userBankName: env.VIETQR_BANK_NAME,
+        amount: String(amount),
+        content: transferContent(ref),
+        transType: 'C',
+        qrType: 3,               // semi-dynamic: amount is per order
+        orderId: ref,            // echoed back on payment, so we can match
+        terminalCode: '',
+        subTerminalCode: '',
+      });
+      return json({ ok: true, ref, qrCode: vq.qrCode, qrLink: vq.qrLink, transactionRefId: vq.transactionRefId });
+    } catch (err) {
+      return json({ ok: false, error: String(err && err.message || err) }, 502);
     }
+  }
 
-    // ---- VietQR: a payment QR for an order ------------------------
-    if (url.pathname === '/vietqr/qr' && request.method === 'POST') {
-      let body;
-      try {
-        body = await request.json();
-      } catch {
-        return json({ ok: false, error: 'bad json' }, 400);
-      }
-      const ref = body.ref;
-      const amount = Math.round(Number(body.amount) || 0);
-      if (!ref || !amount) return json({ ok: false, error: 'ref and amount are required' }, 400);
-      if (!env.VIETQR_BANK_ACCOUNT || !env.VIETQR_BANK_CODE || !env.VIETQR_BANK_NAME) {
-        return json({ ok: false, error: 'bank details not configured' }, 503);
-      }
-      try {
-        const vq = await vietqrPost(env, '/vqr/api/qr/generate-customer', {
-          bankCode: env.VIETQR_BANK_CODE,
-          bankAccount: env.VIETQR_BANK_ACCOUNT,
-          userBankName: env.VIETQR_BANK_NAME,
-          amount: String(amount),
-          content: transferContent(ref),
-          transType: 'C',
-          qrType: 3,               // semi-dynamic: amount is per order
-          orderId: ref,            // echoed back on payment, so we can match
-          terminalCode: '',
-          subTerminalCode: '',
-        });
-        return json({ ok: true, ref, qrCode: vq.qrCode, qrLink: vq.qrLink, transactionRefId: vq.transactionRefId });
-      } catch (err) {
-        return json({ ok: false, error: String(err && err.message || err) }, 502);
-      }
+  // ---- VietQR: balance-change webhook ---------------------------
+  // The documented Host2Client payload carries no signature, so this is
+  // treated as a hint and nothing more: it triggers a confirmation
+  // against VietQR's own check-order API. A webhook anyone can POST to
+  // must never be what decides a payment happened.
+  if (url.pathname === '/vietqr/paid' && request.method === 'POST') {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response('ok');
     }
-
-    // ---- VietQR: balance-change webhook ---------------------------
-    // The documented Host2Client payload carries no signature, so this is
-    // treated as a hint and nothing more: it triggers a confirmation
-    // against VietQR's own check-order API. A webhook anyone can POST to
-    // must never be what decides a payment happened.
-    if (url.pathname === '/vietqr/paid' && request.method === 'POST') {
-      let body;
-      try {
-        body = await request.json();
-      } catch {
-        return new Response('ok');
-      }
-      // N05 = incoming transfer, N22 = a bank account was linked
-      const kind = body.notificationType;
-      if (kind === 'N22') {
-        ctx.waitUntil(
-          telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
-            chat_id: env.SHOP_CHAT_ID,
-            text: `Bank account linked: <code>${esc(body.bankAccount || '—')}</code> (${esc(body.bankCode || '')})`,
-            parse_mode: 'HTML',
-          }).catch(() => null)
-        );
-        return json({ ok: true, seen: 'N22' });
-      }
-      if (kind !== 'N05') return json({ ok: true, ignored: true, notificationType: kind });
-
-      const ref = body.orderId;
-      const amount = Number(body.amount) || 0;
-
-      // Confirm before telling the shop the money is in.
-      let confirmed = false;
-      try {
-        const r = await vietqrPost(env, '/vqr/api/ecommerce-transactions/check-order', {
-          bankAccount: env.VIETQR_BANK_ACCOUNT,
-          bankCode: env.VIETQR_BANK_CODE,
-          type: '0',
-          value: ref,
-          checkSum: orderChecksum(env),
-        });
-        const rows = Array.isArray(r) ? r : (r && r.data) || [];
-        const hit = rows.find(x => x && x.orderId === ref);
-        // status 1 = paid
-        confirmed = Boolean(hit && Number(hit.status) === 1);
-      } catch (err) {
-        if (window && window.console) window.console.warn('check-order failed', err);
-      }
-
-      if (!confirmed) {
-        // Say so rather than quietly ignoring: an unconfirmed webhook means
-        // the webhook and VietQR disagree, which someone should look at.
-        ctx.waitUntil(
-          telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
-            chat_id: env.SHOP_CHAT_ID,
-            text: `A transfer arrived for <code>${esc(ref || 'unknown')}</code> but VietQR has not confirmed it paid. Check before serving.`,
-            parse_mode: 'HTML',
-          }).catch(() => null)
-        );
-        return json({ ok: true, confirmed: false, ref });
-      }
-
+    // N05 = incoming transfer, N22 = a bank account was linked
+    const kind = body.notificationType;
+    if (kind === 'N22') {
       ctx.waitUntil(
         telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
           chat_id: env.SHOP_CHAT_ID,
-          text: [
-            '<b>Payment confirmed</b>',
-            '',
-            `Order: <code>${esc(ref)}</code>`,
-            `Amount: ${amount.toLocaleString('vi-VN')} đ`,
-            `Bank: ${esc(env.VIETQR_BANK_CODE)} ${esc(env.VIETQR_BANK_ACCOUNT)}`,
-          ].join('\n'),
+          text: `Bank account linked: <code>${esc(body.bankAccount || '—')}</code> (${esc(body.bankCode || '')})`,
           parse_mode: 'HTML',
         }).catch(() => null)
       );
-      return json({ ok: true, confirmed: true, ref });
+      return json({ ok: true, seen: 'N22' });
     }
+    if (kind !== 'N05') return json({ ok: true, ignored: true, notificationType: kind });
 
-    // ---- VietQR: ask about one order directly --------------------
-    if (url.pathname === '/vietqr/check' && request.method === 'POST') {
-      let body;
-      try {
-        body = await request.json();
-      } catch {
-        return json({ ok: false, error: 'bad json' }, 400);
-      }
-      if (!body.ref) return json({ ok: false, error: 'ref required' }, 400);
-      try {
-        const r = await vietqrPost(env, '/vqr/api/ecommerce-transactions/check-order', {
-          bankAccount: env.VIETQR_BANK_ACCOUNT,
-          bankCode: env.VIETQR_BANK_CODE,
-          type: '0',
-          value: body.ref,
-          checkSum: orderChecksum(env),
-        });
-        const rows = Array.isArray(r) ? r : (r && r.data) || [];
-        const hit = rows.find(x => x && x.orderId === body.ref);
-        return json({ ok: true, found: Boolean(hit), status: hit ? Number(hit.status) : null, row: hit || null });
-      } catch (err) {
-        return json({ ok: false, error: String(err && err.message || err) }, 502);
-      }
-    }
+    const ref = body.orderId;
+    const amount = Number(body.amount) || 0;
 
-    // ---- VietQR: which pieces are wired up -----------------------
-    if (request.method === 'GET' && url.pathname === '/vietqr/status') {
-      return json({
-        ok: true,
-        model: 'Host2Client (ecommerce)',
-        environment: env.VIETQR_LIVE === '1' ? 'production' : 'test',
-        site: env.SITE_URL || null,
-        credentialsConfigured: Boolean(env.VIETQR_USER && env.VIETQR_PASS),
-        bankConfigured: Boolean(env.VIETQR_BANK_ACCOUNT && env.VIETQR_BANK_CODE && env.VIETQR_BANK_NAME),
-        endpoints: { sync: '/vietqr/sync', qr: '/vietqr/qr', paid: '/vietqr/paid', check: '/vietqr/check' },
+    // Confirm before telling the shop the money is in.
+    let confirmed = false;
+    try {
+      const r = await vietqrPost(env, '/vqr/api/ecommerce-transactions/check-order', {
+        bankAccount: env.VIETQR_BANK_ACCOUNT,
+        bankCode: env.VIETQR_BANK_CODE,
+        type: '0',
+        value: ref,
+        checkSum: orderChecksum(env),
       });
+      const rows = Array.isArray(r) ? r : (r && r.data) || [];
+      const hit = rows.find(x => x && x.orderId === ref);
+      // status 1 = paid
+      confirmed = Boolean(hit && Number(hit.status) === 1);
+    } catch (err) {
+      if (window && window.console) window.console.warn('check-order failed', err);
     }
 
-    // ---- one-time / re-deploy bootstrap ---------------------------
-    // Telegram webhooks are lost when the Worker is redeployed, and the
-    // setup call is a POST that cannot conveniently be made from a
-    // laptop, so the Worker does it for itself. Idempotent.
-    if (request.method === 'GET' && url.pathname === '/setup') {
-      if (!env.WEBHOOK_URL) {
-        return json({ ok: false, error: 'WEBHOOK_URL secret is not set' }, 500);
-      }
-      const hook = env.WEBHOOK_URL + '/telegram';
-      try {
-        const info = await telegram(env.TELEGRAM_BOT_TOKEN, 'setWebhook', {
-          url: hook,
-          drop_pending_updates: 'false',
-        });
-        return json({ ok: true, webhook: hook, result: info });
-      } catch (err) {
-        return json({ ok: false, error: String(err && err.message || err) }, 502);
-      }
-    }
-
-    // ---- order in -------------------------------------------------
-    if (request.method === 'POST' && url.pathname === '/order') {
-      let order;
-      try {
-        order = await request.json();
-      } catch {
-        return json({ ok: false, error: 'bad json' }, 400);
-      }
-      const lines = Array.isArray(order.lines) ? order.lines.filter(Boolean) : [];
-      if (!lines.length) return json({ ok: false, error: 'order has no lines' }, 400);
-
-      const ref = makeRef();
-
-      // A dead token or wrong chat id must not look like a lost order, so
-      // fail loudly and say so rather than reporting success.
-      try {
-        await telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+    if (!confirmed) {
+      // Say so rather than quietly ignoring: an unconfirmed webhook means
+      // the webhook and VietQR disagree, which someone should look at.
+      ctx.waitUntil(
+        telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
           chat_id: env.SHOP_CHAT_ID,
-          text: orderText(order, ref),
+          text: `A transfer arrived for <code>${esc(ref || 'unknown')}</code> but VietQR has not confirmed it paid. Check before serving.`,
           parse_mode: 'HTML',
-        });
-      } catch (err) {
-        return json({ ok: false, error: String(err && err.message || err) }, 502);
-      }
-
-      // A copy to the customer, so they have the reference too.
-      const customer = order.customer_chat_id;
-      if (customer) {
-        ctx.waitUntil(
-          telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
-            chat_id: customer,
-            text: `Your order <b>${esc(ref)}</b> is with the shop. They will confirm here.`,
-            parse_mode: 'HTML',
-          }).catch(() => null)
-        );
-      }
-
-      return json({ ok: true, ref });
+        }).catch(() => null)
+      );
+      return json({ ok: true, confirmed: false, ref });
     }
 
-    // ---- Telegram webhook ----------------------------------------
-    if (request.method === 'POST' && url.pathname === '/telegram') {
-      let update;
-      try {
-        update = await request.json();
-      } catch {
-        return new Response('ok');
-      }
-      const msg = update && update.message;
-      if (!msg || !msg.text) return new Response('ok');
-
-      const text = msg.text.trim();
-      // keep it small: /start is a greeting, anything else gets the same
-      // answer, because the shop runs this by hand
-      await telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
-        chat_id: msg.chat.id,
-        text: text.startsWith('/start') ? helpText() : helpText(),
+    ctx.waitUntil(
+      telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+        chat_id: env.SHOP_CHAT_ID,
+        text: [
+          '<b>Payment confirmed</b>',
+          '',
+          `Order: <code>${esc(ref)}</code>`,
+          `Amount: ${amount.toLocaleString('vi-VN')} đ`,
+          `Bank: ${esc(env.VIETQR_BANK_CODE)} ${esc(env.VIETQR_BANK_ACCOUNT)}`,
+        ].join('\n'),
         parse_mode: 'HTML',
-        reply_to_message_id: msg.message_id,
-      }).catch(() => null);
+      }).catch(() => null)
+    );
+    return json({ ok: true, confirmed: true, ref });
+  }
+
+  // ---- VietQR: ask about one order directly --------------------
+  if (url.pathname === '/vietqr/check' && request.method === 'POST') {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ ok: false, error: 'bad json' }, 400);
+    }
+    if (!body.ref) return json({ ok: false, error: 'ref required' }, 400);
+    try {
+      const r = await vietqrPost(env, '/vqr/api/ecommerce-transactions/check-order', {
+        bankAccount: env.VIETQR_BANK_ACCOUNT,
+        bankCode: env.VIETQR_BANK_CODE,
+        type: '0',
+        value: body.ref,
+        checkSum: orderChecksum(env),
+      });
+      const rows = Array.isArray(r) ? r : (r && r.data) || [];
+      const hit = rows.find(x => x && x.orderId === body.ref);
+      return json({ ok: true, found: Boolean(hit), status: hit ? Number(hit.status) : null, row: hit || null });
+    } catch (err) {
+      return json({ ok: false, error: String(err && err.message || err) }, 502);
+    }
+  }
+
+  // ---- VietQR: which pieces are wired up -----------------------
+  if (request.method === 'GET' && url.pathname === '/vietqr/status') {
+    return json({
+      ok: true,
+      model: 'Host2Client (ecommerce)',
+      environment: env.VIETQR_LIVE === '1' ? 'production' : 'test',
+      site: env.SITE_URL || null,
+      credentialsConfigured: Boolean(env.VIETQR_USER && env.VIETQR_PASS),
+      bankConfigured: Boolean(env.VIETQR_BANK_ACCOUNT && env.VIETQR_BANK_CODE && env.VIETQR_BANK_NAME),
+      endpoints: { sync: '/vietqr/sync', qr: '/vietqr/qr', paid: '/vietqr/paid', check: '/vietqr/check' },
+    });
+  }
+
+  // ---- one-time / re-deploy bootstrap ---------------------------
+  // Telegram webhooks are lost when the Worker is redeployed, and the
+  // setup call is a POST that cannot conveniently be made from a
+  // laptop, so the Worker does it for itself. Idempotent.
+  if (request.method === 'GET' && url.pathname === '/setup') {
+    if (!env.WEBHOOK_URL) {
+      return json({ ok: false, error: 'WEBHOOK_URL secret is not set' }, 500);
+    }
+    const hook = env.WEBHOOK_URL + '/telegram';
+    try {
+      const info = await telegram(env.TELEGRAM_BOT_TOKEN, 'setWebhook', {
+        url: hook,
+        drop_pending_updates: 'false',
+      });
+      return json({ ok: true, webhook: hook, result: info });
+    } catch (err) {
+      return json({ ok: false, error: String(err && err.message || err) }, 502);
+    }
+  }
+
+  // ---- order in -------------------------------------------------
+  if (request.method === 'POST' && url.pathname === '/order') {
+    let order;
+    try {
+      order = await request.json();
+    } catch {
+      return json({ ok: false, error: 'bad json' }, 400);
+    }
+    const lines = Array.isArray(order.lines) ? order.lines.filter(Boolean) : [];
+    if (!lines.length) return json({ ok: false, error: 'order has no lines' }, 400);
+
+    const ref = makeRef();
+
+    // A dead token or wrong chat id must not look like a lost order, so
+    // fail loudly and say so rather than reporting success.
+    try {
+      await telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+        chat_id: env.SHOP_CHAT_ID,
+        text: orderText(order, ref),
+        parse_mode: 'HTML',
+      });
+    } catch (err) {
+      return json({ ok: false, error: String(err && err.message || err) }, 502);
+    }
+
+    // A copy to the customer, so they have the reference too.
+    const customer = order.customer_chat_id;
+    if (customer) {
+      ctx.waitUntil(
+        telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+          chat_id: customer,
+          text: `Your order <b>${esc(ref)}</b> is with the shop. They will confirm here.`,
+          parse_mode: 'HTML',
+        }).catch(() => null)
+      );
+    }
+
+    return json({ ok: true, ref });
+  }
+
+  // ---- Telegram webhook ----------------------------------------
+  if (request.method === 'POST' && url.pathname === '/telegram') {
+    let update;
+    try {
+      update = await request.json();
+    } catch {
       return new Response('ok');
     }
+    const msg = update && update.message;
+    if (!msg || !msg.text) return new Response('ok');
 
-    return json({ ok: false, error: 'not found' }, 404);
-  },
-};
+    const text = msg.text.trim();
+    // keep it small: /start is a greeting, anything else gets the same
+    // answer, because the shop runs this by hand
+    await telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+      chat_id: msg.chat.id,
+      text: text.startsWith('/start') ? helpText() : helpText(),
+      parse_mode: 'HTML',
+      reply_to_message_id: msg.message_id,
+    }).catch(() => null);
+    return new Response('ok');
+  }
+
+  return json({ ok: false, error: 'not found' }, 404);
+}
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
+}
+
+/* ------------------------------------------------------------------
+   CORS.
+
+   The site is static and lives on its own origin, so the browser will
+   not hand it a POST /order until this Worker has said yes. That yes is
+   a preflight: an OPTIONS request the browser sends first, and refuses
+   to send the real request if the answer is anything but a 2xx carrying
+   the right headers.
+
+   The first version had no CORS at all. The preflight therefore fell
+   into the POST-only 405 below, the browser cancelled the actual POST,
+   and Send order silently copied the order to the clipboard instead of
+   sending it. Nothing errored anywhere: the Worker was healthy, the
+   endpoint worked, and the order still never arrived.
+
+   SITE_URL is the site's own address, so the allow-list is exactly one
+   origin rather than every origin on the internet.
+   ------------------------------------------------------------------ */
+
+const CORS_METHODS = 'POST, GET, OPTIONS';
+const CORS_HEADERS = 'content-type';
+
+// No SITE_URL secret means no known site to allow, and refusing every
+// cross-origin call fails closed: the order is not sent, which is the
+// safe direction. It also does not block the Telegram and VietQR
+// webhooks, which are server-to-server and send no Origin.
+function allowedOrigin(request, env) {
+  const site = env.SITE_URL;
+  if (!site) return null;
+  const origin = request.headers.get('origin');
+  if (!origin) return null;          // not a browser cross-origin call
+  return origin === site ? site : null;
+}
+
+function corsHeaders(request, env) {
+  const site = allowedOrigin(request, env);
+  if (!site) return {};
+  return {
+    'access-control-allow-origin': site,
+    'access-control-allow-methods': CORS_METHODS,
+    'access-control-allow-headers': CORS_HEADERS,
+    'access-control-max-age': '86400',
+    'vary': 'Origin',
+  };
+}
+
+function preflight(request, env) {
+  if (request.method !== 'OPTIONS') return null;
+  return new Response(null, { status: 204, headers: corsHeaders(request, env) });
+}
+
+function withCors(res, request, env) {
+  const headers = corsHeaders(request, env);
+  if (!Object.keys(headers).length) return res;
+
+  // The status and body are already settled; only the headers are new.
+  const out = new Headers(res.headers);
+  for (const [k, v] of Object.entries(headers)) out.set(k, v);
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: out });
 }
