@@ -11,3 +11,7 @@ Thumbs.db
 # Nothing is built into the source tree. build.sh produces dist/, which is
 # the Cloudflare Pages output directory and is regenerated on every deploy.
 dist/
+
+# Agent instructions — local to whoever is working in this checkout.
+# build.sh never copies them into dist/, but no reason to track them either.
+AGENTS.md
