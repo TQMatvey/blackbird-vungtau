@@ -332,22 +332,22 @@ function orderText(o, ref) {
   return head.join('\n');
 }
 
-// The button on each order. The reference is the whole payload: the handler
-// edits the message it was pressed on, so nothing has to be remembered
-// server-side — an isolate can be recycled between the press and the reply
-// without losing anything.
+// One button. A group chat raises two questions about an order — is
+// somebody on it, and does the shop have it in hand — and two buttons meant
+// two claims on one order. One is enough: whoever presses it has the order,
+// and the message then says who and when, so nobody picks it up twice.
 function orderKeyboard(ref) {
   return {
-    inline_keyboard: [[{ text: '✔ Taken', callback_data: 'taken:' + ref }]],
+    inline_keyboard: [[{ text: '📦 Заказ принят', callback_data: 'accepted:' + ref }]],
   };
 }
 
-// Appends the "who took it" line to an order message, in place. The text
-// comes from the callback's own copy of the message, not from storage, so
-// this works for orders that arrived hours ago and after any restart.
-function takenText(original, who, when) {
+// Appends the claim line to an order message, in place. The text comes from
+// the callback's own copy of the message, not from storage, so this works
+// for orders that arrived hours ago and after any restart.
+function claimText(original, who, when) {
   return original.replace(/\n*Nobody has taken this order yet\.?/, '') +
-    `\n\n<b>Taken by ${esc(who)}</b> — ${esc(when)}`;
+    `\n\n<b>Заказ принят: ${esc(who)}</b> — ${esc(when)}`;
 }
 
 export default {
@@ -654,7 +654,7 @@ async function handle(request, env, ctx) {
         return new Response('ok');
       }
 
-      // ---- the "✔ Taken" button on an order message ---------------
+      // ---- the claim button on an order message --------------------
       // This is the whole point of the button: in a group chat the message
       // is read by several people, and without a claim two of them cook one
       // order and the customer waits. The press is answered first — Telegram
@@ -662,13 +662,15 @@ async function handle(request, env, ctx) {
       // below fails.
       const cb = update && update.callback_query;
       if (cb && cb.data) {
+        const data = String(cb.data);
+        if (!data.startsWith('accepted:')) return new Response('ok');
         const who = [cb.from.first_name, cb.from.last_name].filter(Boolean).join(' ') ||
                     ('id' + cb.from.id);
-        const ref = String(cb.data).replace(/^taken:/, '');
+        const ref = data.replace(/^accepted:/, '');
 
         await telegram(env.TELEGRAM_BOT_TOKEN, 'answerCallbackQuery', {
           callback_query_id: cb.id,
-          text: 'Taken — ' + ref,
+          text: 'Заказ принят — ' + ref,
         }).catch(() => null);
 
         const original = cb.message && cb.message.text;
@@ -677,9 +679,10 @@ async function handle(request, env, ctx) {
           await telegram(env.TELEGRAM_BOT_TOKEN, 'editMessageText', {
             chat_id: cb.message.chat.id,
             message_id: cb.message.message_id,
-            text: takenText(original, who, when),
+            text: claimText(original, who, when),
             parse_mode: 'HTML',
-            // the button has done its job; leaving it invites a second press
+            // the button has done its job; leaving it invites a second
+            // press on an order that is already settled
             reply_markup: { inline_keyboard: [] },
           }).catch(() => null);
         }
