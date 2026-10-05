@@ -632,9 +632,15 @@
     return lines.join('\n');
   }
 
-  function orderLines() {
-    var lang = document.documentElement.getAttribute('data-lang') || 'en';
-    var t = T();
+  /* The order lines for the shop's chat. These are read by staff, so they
+     are English whatever language the customer is browsing in — a Russian
+     interface must not put Russian dish names in the group's order thread.
+     The customer's own copy (the clipboard text) keeps their language: it
+     is what they read out at the counter. Two renderings, each in the
+     language of the person who has to read it. */
+  function orderLines(lang) {
+    if (!lang) lang = document.documentElement.getAttribute('data-lang') || 'en';
+    var t = STRINGS[LANGS.indexOf(lang) > -1 ? lang : DEFAULT_LANG];
     var out = [];
     for (var key in cart) {
       if (!cart.hasOwnProperty(key)) continue;
@@ -701,7 +707,9 @@
     }
 
     var text = orderText();
-    var lines = orderLines();
+    // English to the shop: the group chat is read by staff, not by the
+    // customer who happens to be browsing in another language.
+    var lines = orderLines('en');
 
     if (!ORDER_API) {
       fallbackCopy(text, function (ok) { busy(ok ? t.copied : t.notSentNoCopy); });
@@ -715,7 +723,7 @@
       body: JSON.stringify({
         lines: lines,
         total: vnd(cartTotal()),
-        pickup: t.pickup + ' ' + hhmm(shopNow().mins),
+        pickup: STRINGS.en.pickup + ' ' + hhmm(shopNow().mins),
         customer: who,
         customer_chat_id: null,
       })
