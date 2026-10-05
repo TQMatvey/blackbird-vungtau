@@ -145,7 +145,16 @@ finish review, the verdict, and DESIGN.md.
         </div>
         <div class="facts__row">
           <dt>Google</dt>
-          <dd class="num">★ 4.9 <span data-vi="Trên Google Maps" data-en="on Google Maps" data-ru="на Google Maps">on Google Maps</span></dd>
+          <dd class="num">
+            <!-- The rating was a dead end: a number with nothing to press.
+                 Same destination as the address above — the place's own
+                 Google page, not a map centred on a pin, so the visitor
+                 lands on the reviews, the photos and the hours. -->
+            <a class="rating" href="https://www.google.com/maps/search/?api=1&amp;query=10.3363636%2C107.0844276&amp;query_place_id=0x31756f9afbec0ec1%3A0x51e1dd8ea3675396" target="_blank" rel="noopener">
+              <span class="rating__star" aria-hidden="true">★</span> 4.9
+              <span data-vi="Trên Google Maps" data-en="on Google Maps" data-ru="на Google Maps">on Google Maps</span>
+            </a>
+          </dd>
         </div>
       </dl>
     </div>
