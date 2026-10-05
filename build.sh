@@ -25,7 +25,10 @@ cp -r assets dist/
 # the output directory, not of the repository
 cp _headers dist/_headers
 
-# and this for the unknown-path redirect — same reason, same place
-cp _redirects dist/_redirects
+# the 404 body, served with a real 404 status for any unknown path.
+# See 404.html's own comment: a catch-all redirect to "/" is not possible
+# here — it also matches the root, and every target resolves to "/", so
+# the site loops to itself and goes down. That was tried and rolled back.
+cp 404.html dist/404.html
 
 echo "built $(find dist -type f | wc -l) files into dist/"

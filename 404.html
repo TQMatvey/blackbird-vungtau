@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!-- Cloudflare Pages serves this with a real 404 status for any path that
+     is not a file on the site.
+
+     The alternative — redirecting unknown paths to the home page — is not
+     available here: a catch-all redirect rule also matches "/" and every
+     target on this site resolves to "/", so the root loops to itself and
+     the site goes down. That was tried and rolled back.
+
+     A wrong URL is a mistake, and this page says so rather than answering
+     with a copy of the home page under an address that does not exist. -->
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Page not found — Black Bird</title>
+<style>
+  :root { --ink:#141110; --crimson:#A8232B; --cream:#F4F0E6; --muted:#6B625A; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:var(--cream); color:var(--ink);
+         font-family:Georgia, "Times New Roman", serif; padding:24px; text-align:center; }
+  .box { max-width:34rem; }
+  .mark { font-size:.8rem; letter-spacing:.18em; text-transform:uppercase; color:var(--crimson);
+          font-family:system-ui, -apple-system, sans-serif; margin:0 0 14px; }
+  h1 { font-size:2rem; margin:0 0 14px; font-weight:600; line-height:1.2; }
+  p { font-size:1.05rem; line-height:1.6; color:var(--muted); margin:0 0 26px; }
+  a.back { display:inline-block; background:var(--crimson); color:#fff; text-decoration:none;
+           padding:13px 22px; border-radius:2px; font-size:.95rem;
+           font-family:system-ui, -apple-system, sans-serif; }
+  a.back:focus-visible { outline:3px solid var(--ink); outline-offset:3px; }
+  .alt { margin-top:22px; font-size:.9rem; color:var(--muted);
+         font-family:system-ui, -apple-system, sans-serif; }
+  .alt a { color:var(--crimson); }
+</style>
+</head>
+<body>
+  <div class="box">
+    <p class="mark">Black Bird · Vũng Tàu</p>
+    <h1>This page does not exist</h1>
+    <p>The address you followed is not part of this site. The menu, the
+       opening hours and the phone number are all on one page &mdash;
+       follow the link and you will find them.</p>
+    <a class="back" href="/">Back to Black Bird</a>
+    <p class="alt">Or call the shop: <a href="tel:+84382264034">038 226 4034</a></p>
+  </div>
+</body>
+</html>
