@@ -467,6 +467,26 @@ finish review, the verdict, and DESIGN.md.
     </div>
 
     <div class="order__box">
+      <!-- Who to call back. Orders go to a group chat where several people
+           read them, so the message has to say who wants the food. -->
+      <div class="order__who">
+        <label class="who__f">
+          <span data-vi="Tên" data-en="Name" data-ru="Имя">Name</span>
+          <input id="custName" type="text" autocomplete="name" enterkeyhint="next"
+                 data-vi-ph="Tên của bạn" data-en-ph="Your name" data-ru-ph="Ваше имя">
+        </label>
+        <label class="who__f">
+          <span data-vi="Điện thoại" data-en="Phone" data-ru="Телефон">Phone</span>
+          <input id="custPhone" type="tel" inputmode="tel" autocomplete="tel" enterkeyhint="next"
+                 data-vi-ph="+84 …" data-en-ph="+84 …" data-ru-ph="+84 …">
+        </label>
+        <label class="who__f">
+          <span data-vi="Địa chỉ" data-en="Address" data-ru="Адрес">Address</span>
+          <input id="custAddress" type="text" autocomplete="street-address" enterkeyhint="done"
+                 data-vi-ph="Đường, số nhà" data-en-ph="Street, house number" data-ru-ph="Улица, дом">
+        </label>
+      </div>
+
       <p class="order__picklabel" data-vi="Chỉnh số lượng bằng − và +" data-en="Set the quantity with − and +" data-ru="Укажите количество кнопками − и +">Set the quantity with − and +</p>
       <div class="order__list" id="orderList">
         <!-- built from the same items and prices as the board -->

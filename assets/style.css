@@ -485,6 +485,31 @@ html[data-lang="ru"] .day__shifts li{ letter-spacing:.01em; text-transform:none;
    repeat it — saying "Pitas" twice stacked is noise, not hierarchy. */
 .ppane{ margin-top:1.1rem; }
 .plist{ list-style:none; }
+/* Who is ordering. Three fields above the menu, one per line on a phone —
+   an address is long and a phone number is not, so a row of three would
+   squeeze both. Focus ring kept visible like every other control. */
+.order__who{
+  padding:0 0 .2rem;
+  display:grid; gap:.55rem;
+}
+.who__f{ display:block; }
+.who__f > span{
+  display:block;
+  font-size:.74rem; font-weight:600; letter-spacing:.01em;
+  color:rgba(58,52,46,.72);
+  padding:0 0 .28rem;
+}
+.who__f input{
+  width:100%;
+  font:inherit; font-size:1rem;
+  color:var(--board-black, #141110);
+  background:#fff;
+  border:1px solid rgba(58,52,46,.28);
+  border-radius:2px;
+  padding:.7rem .8rem;
+}
+.who__f input:focus-visible{ outline:3px solid #A8232B; outline-offset:1px; border-color:#A8232B; }
+
 .order__picklabel{
   padding:.8rem 0 0;
   font-size:.74rem; font-weight:600; letter-spacing:.01em; text-transform:none;

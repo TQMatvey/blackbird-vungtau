@@ -311,12 +311,43 @@ function orderText(o, ref) {
   const lines = Array.isArray(o.lines) ? o.lines.filter(Boolean) : [];
   const head = [
     `<b>New order ${esc(ref)}</b>`,
-    '',
-    ...lines.map(l => '• ' + esc(l)),
   ];
+
+  // Who to call back. The shop is a group chat now, so the message is read
+  // by whoever is free — without these three there is nobody to ask.
+  const c = o.customer || {};
+  if (c.name || c.phone || c.address) {
+    head.push('');
+    if (c.name) head.push(`Name: ${esc(c.name)}`);
+    if (c.phone) head.push(`Phone: ${esc(c.phone)}`);
+    if (c.address) head.push(`Address: ${esc(c.address)}`);
+  }
+
+  head.push('');
+  head.push(...lines.map(l => '• ' + esc(l)));
   if (o.total) head.push('', `<b>Total: ${esc(o.total)}</b>`);
   if (o.pickup) head.push(`Pickup: ${esc(o.pickup)}`);
+
+  head.push('', 'Nobody has taken this order yet.');
   return head.join('\n');
+}
+
+// The button on each order. The reference is the whole payload: the handler
+// edits the message it was pressed on, so nothing has to be remembered
+// server-side — an isolate can be recycled between the press and the reply
+// without losing anything.
+function orderKeyboard(ref) {
+  return {
+    inline_keyboard: [[{ text: '✔ Taken', callback_data: 'taken:' + ref }]],
+  };
+}
+
+// Appends the "who took it" line to an order message, in place. The text
+// comes from the callback's own copy of the message, not from storage, so
+// this works for orders that arrived hours ago and after any restart.
+function takenText(original, who, when) {
+  return original.replace(/\n*Nobody has taken this order yet\.?/, '') +
+    `\n\n<b>Taken by ${esc(who)}</b> — ${esc(when)}`;
 }
 
 export default {
@@ -593,6 +624,7 @@ async function handle(request, env, ctx) {
           chat_id: env.SHOP_CHAT_ID,
           text: orderText(order, ref),
           parse_mode: 'HTML',
+          reply_markup: orderKeyboard(ref),
         });
       } catch (err) {
         return json({ ok: false, error: String(err && err.message || err) }, 502);
@@ -621,10 +653,75 @@ async function handle(request, env, ctx) {
       } catch {
         return new Response('ok');
       }
+
+      // ---- the "✔ Taken" button on an order message ---------------
+      // This is the whole point of the button: in a group chat the message
+      // is read by several people, and without a claim two of them cook one
+      // order and the customer waits. The press is answered first — Telegram
+      // shows a spinner on the button and it must stop, even if the edit
+      // below fails.
+      const cb = update && update.callback_query;
+      if (cb && cb.data) {
+        const who = [cb.from.first_name, cb.from.last_name].filter(Boolean).join(' ') ||
+                    ('id' + cb.from.id);
+        const ref = String(cb.data).replace(/^taken:/, '');
+
+        await telegram(env.TELEGRAM_BOT_TOKEN, 'answerCallbackQuery', {
+          callback_query_id: cb.id,
+          text: 'Taken — ' + ref,
+        }).catch(() => null);
+
+        const original = cb.message && cb.message.text;
+        if (original && cb.message.chat) {
+          const when = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+          await telegram(env.TELEGRAM_BOT_TOKEN, 'editMessageText', {
+            chat_id: cb.message.chat.id,
+            message_id: cb.message.message_id,
+            text: takenText(original, who, when),
+            parse_mode: 'HTML',
+            // the button has done its job; leaving it invites a second press
+            reply_markup: { inline_keyboard: [] },
+          }).catch(() => null);
+        }
+        return new Response('ok');
+      }
+
       const msg = update && update.message;
       if (!msg || !msg.text) return new Response('ok');
 
       const text = msg.text.trim();
+
+      // Someone claims an order by typing its reference. This is the
+      // fallback for a phone where the button is awkward, and it also works
+      // when the message is forwarded rather than tapped.
+      const typed = /^BB-\d{4}$/i.exec(text);
+      if (typed && msg.chat.type !== 'private') {
+        const who = [msg.from && msg.from.first_name, msg.from && msg.from.last_name]
+          .filter(Boolean).join(' ') || (msg.from ? 'id' + msg.from.id : 'someone');
+        await telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+          chat_id: msg.chat.id,
+          text: `${esc(who)} says <b>${esc(text.toUpperCase())}</b> is taken.`,
+          parse_mode: 'HTML',
+          reply_to_message_id: msg.message_id,
+        }).catch(() => null);
+        return new Response('ok');
+      }
+
+      // /chatid reports this conversation's id. A group's id is not
+      // visible anywhere in the Telegram UI, and SHOP_CHAT_ID has to be set
+      // to it before orders can be delivered to a group instead of a
+      // private chat. One command in the group, and the number comes back.
+      if (text.startsWith('/chatid')) {
+        await telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
+          chat_id: msg.chat.id,
+          text: `Chat id: <code>${msg.chat.id}</code>` +
+                (msg.chat.title ? `\nTitle: ${esc(msg.chat.title)}` : ''),
+          parse_mode: 'HTML',
+          reply_to_message_id: msg.message_id,
+        }).catch(() => null);
+        return new Response('ok');
+      }
+
       // keep it small: /start is a greeting, anything else gets the same
       // answer, because the shop runs this by hand
       await telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {

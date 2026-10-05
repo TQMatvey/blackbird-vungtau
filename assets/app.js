@@ -76,6 +76,8 @@
       sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
       notSentNoCopy: 'Not sent, and the copy failed — please call',
       notCopied: 'Copy failed',
+      badPhone: 'Enter a phone number, for example +84 91 234 56 78',
+      nameNeeded: 'Please add a name and a phone number',
       pickup: 'Pickup',
       size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
     },
@@ -86,6 +88,8 @@
       sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
       notSentNoCopy: 'Chưa gửi, và không chép được — xin gọi',
       notCopied: 'Không chép được',
+      badPhone: 'Nhập số điện thoại, ví dụ +84 91 234 56 78',
+      nameNeeded: 'Xin điền tên và số điện thoại',
       pickup: 'Lấy tại quán',
       size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
       items: function (c) { return c + ' món trong đơn của bạn'; }
@@ -97,6 +101,8 @@
       sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
       notSentNoCopy: 'Не отправлено и скопировать не вышло — позвоните',
       notCopied: 'Скопировать не вышло',
+      badPhone: 'Введите номер телефона, например +84 91 234 56 78',
+      nameNeeded: 'Укажите имя и номер телефона',
       pickup: 'Самовывоз',
       size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
       // Russian takes three plural forms, not two
@@ -205,16 +211,23 @@
     root.setAttribute('data-lang', lang);
     root.setAttribute('lang', lang);
 
-    var nodes = document.querySelectorAll('[data-vi],[data-en],[data-ru]');
+    // Inputs carry only the -ph variants (a placeholder has no visible
+    // text), so they have to be selected explicitly — matching only
+    // [data-en] leaves every placeholder permanently blank.
+    var nodes = document.querySelectorAll('[data-vi],[data-en],[data-ru],[data-en-ph],[data-vi-ph],[data-ru-ph]');
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
       var want = el.getAttribute('data-' + lang);
       if (want == null) want = el.getAttribute('data-en');
       if (want == null) want = el.getAttribute('data-vi');
-      if (want == null) continue;
 
+      // Placeholder first: an input carries only the -ph variants, so
+      // `want` is null for it and the old early-out below skipped it
+      // entirely — every placeholder stayed blank on every language.
       var ph = el.getAttribute('data-' + lang + '-ph') || el.getAttribute('data-en-ph') || el.getAttribute('data-vi-ph');
-      if (ph != null) el.setAttribute('placeholder', ph);
+      if (ph != null) { el.setAttribute('placeholder', ph); continue; }
+
+      if (want == null) continue;
 
       if (el.tagName === 'META') el.setAttribute('content', want);
       else if (el.hasAttribute('alt')) el.setAttribute('alt', want);
@@ -599,6 +612,10 @@
     var lang = document.documentElement.getAttribute('data-lang') || 'en';
     var t = T();
     var lines = ['Black Bird — order'];
+    var who = readCustomer();
+    if (who.name) lines.push('Name: ' + who.name);
+    if (who.phone) lines.push('Phone: ' + who.phone);
+    if (who.address) lines.push('Address: ' + who.address);
     for (var key in cart) {
       if (!cart.hasOwnProperty(key)) continue;
       var p = key.split(':');
@@ -632,25 +649,63 @@
     return out;
   }
 
+  /* -------------------------------------------------------------
+     Who is ordering
+     ------------------------------------------------------------- */
+  /* Orders land in a group chat where several people read them, so the
+     message has to say who wants the food. Name and phone are required:
+     a name to greet and a number to call is the minimum a shop can act
+     on, and an order without them is one nobody can answer. */
+  function readCustomer() {
+    var get = function (id) {
+      var el = document.getElementById(id);
+      return el ? String(el.value || '').trim() : '';
+    };
+    return { name: get('custName'), phone: get('custPhone'), address: get('custAddress') };
+  }
+
+  /* Digits, a leading +, spaces and dashes — nothing else. Vietnamese
+     numbers are 9 or 10 digits after +84; a visitor may type a landline
+     with a leading 0, so the shape is deliberately looser than any one
+     country's format rather than wrongly strict about theirs. */
+  function phoneOK(v) {
+    if (!v) return false;
+    var digits = v.replace(/[^\d]/g, '');
+    return digits.length >= 9 && digits.length <= 15;
+  }
+
   function sendOrder(btn) {
     if (cartCount() === 0) return;
-    var text = orderText();
-    var lines = orderLines();
+    var who = readCustomer();
+    var t = T();
     var busy = function (msg) { flash(btn, msg); };
 
-    if (!ORDER_API) {
-      fallbackCopy(text, function (ok) { busy(ok ? T().copied : T().notSentNoCopy); });
+    if (!who.name || !phoneOK(who.phone)) {
+      // Say which field is wrong instead of shipping an order the shop
+      // cannot answer, and say it on the button they just pressed.
+      var bad = document.getElementById(!who.name ? 'custName' : 'custPhone');
+      if (bad && bad.focus) bad.focus();
+      busy(t.nameNeeded);
       return;
     }
 
-    busy(T().sending);
+    var text = orderText();
+    var lines = orderLines();
+
+    if (!ORDER_API) {
+      fallbackCopy(text, function (ok) { busy(ok ? t.copied : t.notSentNoCopy); });
+      return;
+    }
+
+    busy(t.sending);
     fetch(ORDER_API, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         lines: lines,
         total: vnd(cartTotal()),
-        pickup: T().pickup + ' ' + hhmm(shopNow().mins),
+        pickup: t.pickup + ' ' + hhmm(shopNow().mins),
+        customer: who,
         customer_chat_id: null,
       })
     }).then(function (r) {
