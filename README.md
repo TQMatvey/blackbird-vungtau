@@ -113,6 +113,29 @@ npx wrangler --cwd worker secret put WEBHOOK_URL
 **Not done yet:** VietQR payment. The worker is the place it will live, since
 that also needs a server-held secret.
 
+## Checking it
+
+The menu is written twice — once as board rows in `index.html`, once as
+`ITEMS` in `assets/app.js` — and the two are edited by hand in two files.
+That is the project's known way to go wrong, and the page now leans on it
+harder: a dish on the board is pressable only when its name matches an
+orderable item.
+
+```
+node scripts/check-board-vs-items.mjs
+```
+
+It prints how many board rows match an orderable item and whether the prices
+agree, and exits non-zero on any mismatch. Run it after touching the menu.
+
+```
+node worker/md5.test.mjs
+```
+
+Known-answer tests for the Worker's checksum, against the RFC 1321 vectors
+and the string VietQR documents. That checksum verifies payment callbacks, so
+a broken one is worse than none.
+
 ## Two things that are not finished
 
 - **No payment.** Orders reach the shop over Telegram; nothing takes money yet.

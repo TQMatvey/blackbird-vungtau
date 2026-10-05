@@ -530,6 +530,40 @@ html[data-lang="ru"] .day__shifts li{ letter-spacing:.01em; text-transform:none;
 }
 .who__f input:focus-visible{ outline:3px solid #A8232B; outline-offset:1px; border-color:#A8232B; }
 
+/* -- the board is a way in: a matched dish row is pressable -- */
+.board .row--jump{ cursor:pointer; }
+.board .row--jump:hover .row__name{ text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:2px; text-decoration-color:var(--crimson); }
+.board .row--jump:focus-visible{ outline:3px solid var(--crimson); outline-offset:4px; }
+/* a small arrow on the right edge, the same signal the rating link uses */
+.board .row--jump .row__price::after{
+  content:'';
+  display:block;
+  width:.42em; height:.42em;
+  margin:.55em 0 0 auto;
+  border-right:1.5px solid rgba(58,52,46,.55);
+  border-top:1.5px solid rgba(58,52,46,.55);
+  transform:rotate(45deg);
+  opacity:0;
+  transition:opacity .15s ease;
+}
+.board .row--jump:hover .row__price::after,
+.board .row--jump:focus-visible .row__price::after{ opacity:1; }
+
+/* The line the visitor was sent to. Fades to the ordinary row colour, so it
+   reads as "here it is" rather than as a selected state that must be
+   cleared — nothing is selected, and nothing needs undoing. */
+@keyframes plinehit{
+  from{ background:rgba(201,138,27,.28); }
+  to{ background:transparent; }
+}
+#orderPane .pline--hit{
+  animation:plinehit 1.6s ease-out;
+  border-radius:2px;
+}
+@media (prefers-reduced-motion: reduce){
+  #orderPane .pline--hit{ animation:none; background:rgba(201,138,27,.28); }
+}
+
 .order__picklabel{
   padding:.8rem 0 0;
   font-size:.74rem; font-weight:600; letter-spacing:.01em; text-transform:none;

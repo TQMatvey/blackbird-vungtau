@@ -78,6 +78,7 @@
       notCopied: 'Copy failed',
       badPhone: 'Enter a phone number, for example 091 234 56 78',
       nameNeeded: 'Please add a name and a phone number',
+      jump: 'open this in your order',
       pickup: 'Pickup',
       size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
     },
@@ -90,6 +91,7 @@
       notCopied: 'Không chép được',
       badPhone: 'Nhập số điện thoại, ví dụ 091 234 56 78',
       nameNeeded: 'Xin điền tên và số điện thoại',
+      jump: 'mở món này trong đơn của bạn',
       pickup: 'Lấy tại quán',
       size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
       items: function (c) { return c + ' món trong đơn của bạn'; }
@@ -103,6 +105,7 @@
       notCopied: 'Скопировать не вышло',
       badPhone: 'Введите номер телефона, например 091 234 56 78',
       nameNeeded: 'Укажите имя и номер телефона',
+      jump: 'открыть это блюдо в заказе',
       pickup: 'Самовывоз',
       size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
       // Russian takes three plural forms, not two
@@ -245,6 +248,7 @@
       // the picker is built in JS, so the switch has to be told
       if (typeof labelChips === 'function' && document.getElementById('orderList')) {
         labelChips();
+        if (typeof relabelMenuJump === 'function') relabelMenuJump();
         var sel = document.querySelector('#orderList .ptab[aria-selected="true"]');
         if (sel) showGroup(parseInt(sel.dataset.g, 10));
         paintOrder();
@@ -529,6 +533,141 @@
       var plus = el.querySelector('.oqty__b[data-act="plus"]');
       if (minus) minus.setAttribute('aria-label', t.less + ' ' + nm);
       if (plus) plus.setAttribute('aria-label', t.more + ' ' + nm);
+    }
+  }
+
+  /* -------------------------------------------------------------
+     The board is a way in, not just a price list
+     ------------------------------------------------------------- */
+  /* A visitor reads the menu board first — it is the attractive part of
+     the page — and only then decides to order. Making a dish name pressable
+     closes that gap: the row opens its own group in the builder and marks
+     the line, so the next thing to do is the stepper that is already there.
+
+     The match is by dish name, not by counting positions. Counted positions
+     would be one more copy of the menu to keep in step, and the two lists
+     are hand-edited in two files — the project's signature bug. Name
+     matching fails safe instead: a dish that cannot be matched simply is
+     not pressable, which is a missing affordance rather than a wrong one.
+     If the two lists ever drift, that is exactly the moment to notice. */
+  window.__jumpDebug = { build: buildJumpIndex, rows: jumpRows };
+
+  function normName(s) {
+    return String(s).toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  var jumpIndex = null;
+
+  function buildJumpIndex() {
+    var map = {};
+    for (var i = 0; i < ITEMS.length; i++) map[normName(ITEMS[i].en)] = i;
+    return map;
+  }
+
+  function jumpRows() {
+    var out = [];
+    var rows = document.querySelectorAll('.board .row');
+    for (var i = 0; i < rows.length; i++) {
+      var nm = rows[i].querySelector('.row__name');
+      if (nm) out.push({ el: rows[i], n: normName(nm.textContent) });
+    }
+    return out;
+  }
+
+  function wireMenuJump() {
+    var board = document.querySelector('.board');
+    if (!board || !document.getElementById('orderList')) return;
+
+    jumpIndex = buildJumpIndex();
+    var rows = jumpRows();
+    var linked = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+      var ix = jumpIndex[rows[i].n];
+      if (ix === undefined) continue;          // stays a plain price row
+      var el = rows[i].el;
+      el.className += ' row--jump';
+      el.setAttribute('data-jump', String(ix));
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      linked++;
+    }
+
+    // one listener for the whole board, rather than 31 of them
+    board.addEventListener('click', onJumpActivate);
+    board.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        if (!onJumpActivate(e)) return;
+        e.preventDefault();                    // Space must not scroll
+      }
+    });
+
+    relabelMenuJump();
+    if (window.console) {
+      console.info('menu board: ' + linked + ' of ' + rows.length +
+                   ' rows open the order builder');
+    }
+    return linked;
+  }
+
+  /* Returns true when the event was one of our rows, so the keydown
+     handler knows whether to swallow Space. */
+  function onJumpActivate(e) {
+    var el = e.target;
+    while (el && el !== document) {
+      if (el.getAttribute && el.getAttribute('data-jump') != null) break;
+      el = el.parentNode;
+    }
+    if (!el || !el.getAttribute || el.getAttribute('data-jump') == null) return false;
+    goToItem(parseInt(el.getAttribute('data-jump'), 10));
+    return true;
+  }
+
+  function goToItem(ix) {
+    var it = ITEMS[ix];
+    if (!it) return;
+
+    showGroup(it.g);
+
+    var pane = document.getElementById('orderPane');
+    if (pane && pane.scrollIntoView) {
+      var reduce = false;
+      try {
+        reduce = window.matchMedia &&
+                 window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      } catch (err) { reduce = false; }
+      pane.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    }
+
+    // Mark the line, so the eye lands on it and not on the group's first row.
+    var lines = document.querySelectorAll('#orderPane .pline');
+    for (var i = 0; i < lines.length; i++) {
+      var v = lines[i].querySelector('.pvar');
+      if (!v || parseInt(v.dataset.i, 10) !== ix) continue;
+      lines[i].className = lines[i].className.replace(/ ?pline--hit/g, '') + ' pline--hit';
+      (function (node) {
+        setTimeout(function () {
+          node.className = node.className.replace(/ ?pline--hit/g, '');
+        }, 1800);
+      })(lines[i]);
+    }
+
+    // Move focus to the stepper of that dish: a keyboard user pressed this
+    // to get here, so the next Tab must not start from the top of the page.
+    var plus = document.querySelector('#orderPane .pvar[data-i="' + ix + '"] [data-act="plus"]');
+    if (plus && plus.focus) plus.focus();
+  }
+
+  /* The action word in the accessible name has to follow the language, and
+     the name itself is plain text in the markup, so the label is rebuilt
+     from scratch on every switch. */
+  function relabelMenuJump() {
+    var t = T();
+    var rows = document.querySelectorAll('.board .row--jump');
+    for (var i = 0; i < rows.length; i++) {
+      var nm = rows[i].querySelector('.row__name');
+      if (!nm) continue;
+      rows[i].setAttribute('aria-label', nm.textContent.trim() + ' — ' + t.jump);
     }
   }
 
@@ -868,6 +1007,7 @@
 
     wireLang();
     wireOrder();
+    wireMenuJump();
     paintProgress();
     paintDock();
 
