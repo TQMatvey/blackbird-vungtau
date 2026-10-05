@@ -76,7 +76,7 @@
       sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
       notSentNoCopy: 'Not sent, and the copy failed — please call',
       notCopied: 'Copy failed',
-      badPhone: 'Enter a phone number, for example +84 91 234 56 78',
+      badPhone: 'Enter a phone number, for example 091 234 56 78',
       nameNeeded: 'Please add a name and a phone number',
       pickup: 'Pickup',
       size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
@@ -88,7 +88,7 @@
       sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
       notSentNoCopy: 'Chưa gửi, và không chép được — xin gọi',
       notCopied: 'Không chép được',
-      badPhone: 'Nhập số điện thoại, ví dụ +84 91 234 56 78',
+      badPhone: 'Nhập số điện thoại, ví dụ 091 234 56 78',
       nameNeeded: 'Xin điền tên và số điện thoại',
       pickup: 'Lấy tại quán',
       size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
@@ -101,7 +101,7 @@
       sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
       notSentNoCopy: 'Не отправлено и скопировать не вышло — позвоните',
       notCopied: 'Скопировать не вышло',
-      badPhone: 'Введите номер телефона, например +84 91 234 56 78',
+      badPhone: 'Введите номер телефона, например 091 234 56 78',
       nameNeeded: 'Укажите имя и номер телефона',
       pickup: 'Самовывоз',
       size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
@@ -664,14 +664,25 @@
     return { name: get('custName'), phone: get('custPhone'), address: get('custAddress') };
   }
 
-  /* Digits, a leading +, spaces and dashes — nothing else. Vietnamese
-     numbers are 9 or 10 digits after +84; a visitor may type a landline
-     with a leading 0, so the shape is deliberately looser than any one
-     country's format rather than wrongly strict about theirs. */
+  /* Digits, spaces and dashes. A Vietnamese number is written the way it is
+     dialled — 091 234 56 78, leading zero, no +84 — so a leading zero is
+     the expected shape, not a mistake to strip.
+
+     Accepted: 0 followed by 2-9 (02 Hanoi, 028 HCMC, 03/05/06/07/08/09
+     regional and mobile), the eight-digit Hanoi-style landline, and the
+     +84 / 84 / 0084 international forms an expat may well type. Rejected:
+     01..., which no Vietnamese operator issues, and anything under eight
+     digits, which is a typo rather than a number — a wrong number
+     reaching the shop costs a customer their food. */
   function phoneOK(v) {
     if (!v) return false;
+    var bare = v.replace(/[\s\-().]/g, '');
     var digits = v.replace(/[^\d]/g, '');
-    return digits.length >= 9 && digits.length <= 15;
+    if (digits.length < 8 || digits.length > 15) return false;
+    if (/^(?:\+?84|0084)/.test(bare)) return true;
+    if (/^0[2-9]\d{7,10}$/.test(bare)) return true;   // 02... 03... 08... 09...
+    if (/^2\d{7}$/.test(bare)) return true;           // 8-digit landline
+    return false;
   }
 
   function sendOrder(btn) {

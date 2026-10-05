@@ -332,13 +332,13 @@ function orderText(o, ref) {
   return head.join('\n');
 }
 
-// One button. A group chat raises two questions about an order — is
-// somebody on it, and does the shop have it in hand — and two buttons meant
-// two claims on one order. One is enough: whoever presses it has the order,
-// and the message then says who and when, so nobody picks it up twice.
+// English only, deliberately. This chat is read by shop staff, who work in
+// English; the three-language site is for customers, not for the people
+// standing behind the counter. A mixed-language order thread is worse than
+// a plain one.
 function orderKeyboard(ref) {
   return {
-    inline_keyboard: [[{ text: '📦 Заказ принят', callback_data: 'accepted:' + ref }]],
+    inline_keyboard: [[{ text: '📦 Order accepted', callback_data: 'accepted:' + ref }]],
   };
 }
 
@@ -347,7 +347,7 @@ function orderKeyboard(ref) {
 // for orders that arrived hours ago and after any restart.
 function claimText(original, who, when) {
   return original.replace(/\n*Nobody has taken this order yet\.?/, '') +
-    `\n\n<b>Заказ принят: ${esc(who)}</b> — ${esc(when)}`;
+    `\n\n<b>Order accepted by ${esc(who)}</b> — ${esc(when)}`;
 }
 
 export default {
@@ -670,7 +670,7 @@ async function handle(request, env, ctx) {
 
         await telegram(env.TELEGRAM_BOT_TOKEN, 'answerCallbackQuery', {
           callback_query_id: cb.id,
-          text: 'Заказ принят — ' + ref,
+          text: 'Order accepted — ' + ref,
         }).catch(() => null);
 
         const original = cb.message && cb.message.text;

@@ -457,12 +457,8 @@ finish review, the verdict, and DESIGN.md.
     <div class="order__side">
       <h2 data-vi="Đặt món" data-en="Place an order" data-ru="Сделать заказ">Place an order</h2>
       <p data-vi="Chọn món, xem tổng tiền, rồi gửi đơn ngay từ đây." data-en="Pick your items, see the total, and send the order from here." data-ru="Выберите блюда, узнайте итог и отправьте заказ прямо отсюда.">Pick your items, see the total, and send the order from here.</p>
-      <p class="order__steps" data-vi="Bước 1: chỉnh số lượng. Bước 2: bấm Gửi đơn." data-en="Step 1: set the quantities. Step 2: press Send order." data-ru="Шаг 1: укажите количество. Шаг 2: нажмите Отправить заказ.">Step 1: set the quantities. Step 2: press Send order.</p>
-      <div class="order__acts">
-        <button class="btn btn--solid btn--lg" type="button" id="sendOrder" data-vi="Gửi đơn" data-en="Send order" data-ru="Отправить заказ">Send order</button>
-        <button class="btn btn--lg" type="button" id="copyOrder" data-vi="Chép đơn" data-en="Copy order" data-ru="Скопировать заказ">Copy order</button>
-      </div>
-      <p class="order__alt" data-vi="Hoặc gọi cho quán: 038 226 4034" data-en="Or call the shop: 038 226 4034" data-ru="Или позвоните: 038 226 4034">Or call the shop: <a href="tel:+84382264034">038 226 4034</a></p>
+      <p class="order__steps" data-vi="Bước 1: điền tên và số điện thoại. Bước 2: chỉnh số lượng. Bước 3: bấm Gửi đơn." data-en="Step 1: your name and phone. Step 2: set the quantities. Step 3: press Send order." data-ru="Шаг 1: имя и телефон. Шаг 2: укажите количество. Шаг 3: нажмите Отправить заказ.">Step 1: your name and phone. Step 2: set the quantities. Step 3: press Send order.</p>
+            <p class="order__alt" data-vi="Hoặc gọi cho quán: 038 226 4034" data-en="Or call the shop: 038 226 4034" data-ru="Или позвоните: 038 226 4034">Or call the shop: <a href="tel:+843****4034">038 226 4034</a></p>
       <p class="order__note" data-vi="Đặt trực tiếp tại đây luôn rẻ hơn — các ứng dụng giao hàng cộng thêm phí dịch vụ." data-en="Ordering direct here is always cheaper — the delivery apps add a service fee on top." data-ru="Заказ напрямую здесь всегда дешевле — приложения доставки добавляют плату за сервис.">Ordering direct here is always cheaper — the delivery apps add a service fee on top.</p>
     </div>
 
@@ -478,7 +474,7 @@ finish review, the verdict, and DESIGN.md.
         <label class="who__f">
           <span data-vi="Điện thoại" data-en="Phone" data-ru="Телефон">Phone</span>
           <input id="custPhone" type="tel" inputmode="tel" autocomplete="tel" enterkeyhint="next"
-                 data-vi-ph="+84 …" data-en-ph="+84 …" data-ru-ph="+84 …">
+                 data-vi-ph="091 234 56 78" data-en-ph="091 234 56 78" data-ru-ph="091 234 56 78">
         </label>
         <label class="who__f">
           <span data-vi="Địa chỉ" data-en="Address" data-ru="Адрес">Address</span>
@@ -500,6 +496,16 @@ finish review, the verdict, and DESIGN.md.
           <span class="num" id="orderTotal">0đ</span>
         </p>
         <p class="order__hint" data-vi="Bấm Gửi đơn để gửi danh sách này qua Telegram tới quán." data-en="Press Send order to send this list to the shop over Telegram." data-ru="Нажмите Отправить заказ, чтобы отправить этот список в заведение через Telegram.">Press Send order to send this list to the shop over Telegram.</p>
+      </div>
+
+      <!-- The buttons live under the total, not up in the side column with
+           the prose. A visitor reads down the list, reaches the money, and
+           the action is right there — and on a phone it is no longer the
+           thing the sticky dock can cover, which is what made it feel
+           unpressable at the bottom of a long list. -->
+      <div class="order__acts">
+        <button class="btn btn--solid btn--lg" type="button" id="sendOrder" data-vi="Gửi đơn" data-en="Send order" data-ru="Отправить заказ">Send order</button>
+        <button class="btn btn--lg" type="button" id="copyOrder" data-vi="Chép đơn" data-en="Copy order" data-ru="Скопировать заказ">Copy order</button>
       </div>
     </div>
   </div>
