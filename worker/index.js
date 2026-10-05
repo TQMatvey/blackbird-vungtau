@@ -35,6 +35,78 @@
 const BOT = '@tqblackbirdbot';
 
 /* ------------------------------------------------------------------
+   CORS — why this block exists at all.
+
+   The site posts JSON: assets/app.js sends
+   headers: { 'content-type': 'application/json' }. That header is NOT
+   on the CORS-safelisted list, so a browser must send a preflight
+   OPTIONS before the POST. This Worker used to answer OPTIONS with
+   405 "POST only" (the POST_ONLY check below), the browser dropped the
+   whole thing as net::ERR_FAILED, fetch() rejected, and the page fell
+   back to "Not sent — copied". No order ever reached Telegram — the
+   route was fine, the transport was not.
+
+   Fix is two halves and both are required:
+     1. answer the preflight with the headers the browser is asking for;
+     2. put the same headers on the real response, or the browser
+        blocks reading it even after a successful preflight.
+
+   Why not '*': this is a live Worker that accepts orders and already
+   ran with an open CORS. Every origin is matched against this list,
+   and an origin that is absent or not listed simply gets no CORS
+   header at all — no throw, no 500, the request is answered normally
+   and the browser blocks it. That is the intended outcome for a site
+   that is not ours.
+
+   >>> ADD A NEW DOMAIN HERE when the site moves (a custom domain, a
+   >>> second pages.dev project, a preview). One line, nothing else.
+   >>> Exact scheme + host + optional port. No trailing slash.
+   ------------------------------------------------------------------ */
+
+const ALLOWED_ORIGINS = [
+  'https://blackbird-vungtau.pages.dev',
+  // 'http://localhost:8899',   // local debugging only — MUST stay commented out in production
+];
+
+/* Paths a browser on our site actually calls. The Telegram and VietQR
+   webhooks are server-to-server: they carry no Origin and must never
+   get CORS treatment. */
+const CORS_PATHS = ['/order'];
+
+// Ten minutes. Long enough that a customer tapping Send order twice
+// does not preflight twice, short enough that changing ALLOWED_ORIGINS
+// stops being confusing for more than a coffee break.
+const CORS_MAX_AGE = '600';
+
+/* Returns the CORS headers for this request, or {} when the origin is
+   not ours. Never throws. */
+function corsHeaders(request) {
+  const origin = request.headers.get('origin');
+  if (!origin) return {};
+  if (!ALLOWED_ORIGINS.includes(origin)) return {};
+
+  const h = {
+    'access-control-allow-origin': origin,   // echo the exact origin, not '*'
+    'access-control-allow-methods': 'POST, OPTIONS',
+    // content-type is the whole reason the preflight exists; without it
+    // listed here the browser refuses the POST and we are back to square one.
+    'access-control-allow-headers': 'content-type',
+    'access-control-max-age': CORS_MAX_AGE,
+    'access-control-expose-headers': 'content-type',
+    // this response varies by Origin, so a cache must not hand a
+    // stranger the header meant for us
+    'vary': 'Origin',
+  };
+  return h;
+}
+
+function corsAllowed(request, url) {
+  if (request.method !== 'OPTIONS') return false;
+  if (!CORS_PATHS.includes(url.pathname)) return false;
+  return Object.keys(corsHeaders(request)).length > 0;
+}
+
+/* ------------------------------------------------------------------
    VietQR, Host2Client — the ecommerce model.
 
    The first pass here implemented Host2Host, where the merchant hosts
@@ -249,7 +321,31 @@ function orderText(o, ref) {
 
 export default {
   async fetch(request, env, ctx) {
+    // Every route below answers through here, so the CORS headers are
+    // applied in one place instead of on twenty `return json(...)` lines:
+    // a response without them is unreadable by the browser even when the
+    // preflight succeeded.
+    const res = await handle(request, env, ctx);
+    const cors = corsHeaders(request);
+    if (!Object.keys(cors).length) return res;
+    const h = new Headers(res.headers);
+    for (const k of Object.keys(cors)) h.set(k, cors[k]);
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  },
+};
+
+// The routing itself, unchanged from before — only the call site moved.
+async function handle(request, env, ctx) {
     const url = new URL(request.url);
+    const cors = corsHeaders(request);
+
+    // Preflight first, before every other route check. This must return
+    // immediately: a preflight carries no order body, so it must never
+    // reach /order, never call makeRef() and never touch Telegram.
+    if (corsAllowed(request, url)) {
+      const h = new Headers(cors);
+      return new Response(null, { status: 204, statusText: 'No Content', headers: h });
+    }
 
     // Anyone who opens the Worker directly should get something that says
     // what it is, rather than a bare {"error":"not found"} that looks like
@@ -541,8 +637,7 @@ export default {
     }
 
     return json({ ok: false, error: 'not found' }, 404);
-  },
-};
+}
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {

@@ -25,4 +25,7 @@ cp -r assets dist/
 # the output directory, not of the repository
 cp _headers dist/_headers
 
+# and this for the unknown-path redirect — same reason, same place
+cp _redirects dist/_redirects
+
 echo "built $(find dist -type f | wc -l) files into dist/"

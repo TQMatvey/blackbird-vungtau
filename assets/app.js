@@ -70,27 +70,33 @@
 
   var STRINGS = {
     en: {
-      open: 'Open now', until: 'until', opensAt: 'Opens at', closed: 'Closed', today: 'today',
+      open: 'Open now', until: 'until', opensAt: 'Opens at', closed: 'Closed', today: 'today', tomorrow: 'tomorrow',
       total: 'Total',
       copied: 'Copied', less: 'One fewer', more: 'One more', add: 'Add',
       sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
+      notSentNoCopy: 'Not sent, and the copy failed — please call',
+      notCopied: 'Copy failed',
       pickup: 'Pickup',
       size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
     },
     vi: {
-      open: 'Đang mở cửa', until: 'đến', opensAt: 'Mở cửa lúc', closed: 'Đã đóng cửa', today: 'hôm nay',
+      open: 'Đang mở cửa', until: 'đến', opensAt: 'Mở cửa lúc', closed: 'Đã đóng cửa', today: 'hôm nay', tomorrow: 'ngày mai',
       total: 'Tổng',
       copied: 'Đã chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
       sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
+      notSentNoCopy: 'Chưa gửi, và không chép được — xin gọi',
+      notCopied: 'Không chép được',
       pickup: 'Lấy tại quán',
       size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
       items: function (c) { return c + ' món trong đơn của bạn'; }
     },
     ru: {
-      open: 'Открыто', until: 'до', opensAt: 'Открывается в', closed: 'Закрыто', today: 'сегодня',
+      open: 'Открыто', until: 'до', opensAt: 'Открывается в', closed: 'Закрыто', today: 'сегодня', tomorrow: 'завтра',
       total: 'Итого',
       copied: 'Скопировано', less: 'На одну меньше', more: 'Добавить', add: 'Добавить',
       sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
+      notSentNoCopy: 'Не отправлено и скопировать не вышло — позвоните',
+      notCopied: 'Скопировать не вышло',
       pickup: 'Самовывоз',
       size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
       // Russian takes three plural forms, not two
@@ -147,9 +153,12 @@
     } else {
       state.setAttribute('data-state', 'closed');
       word.textContent = t.closed;
-      // before opening: say when it opens; after closing: it opens tomorrow
-      var next = n.mins < OPEN_MIN ? OPEN_MIN : CLOSE_MIN;
-      until.textContent = t.opensAt + ' ' + hhmm(next) + (n.mins >= CLOSE_MIN ? ' (' + t.today + ')' : '');
+      // before opening: today. after closing: TOMORROW at OPEN_MIN —
+      // it used to print CLOSE_MIN with a "(today)" tag, which told the
+      // visitor the shop opens at 20:00, every evening between 20:00
+      // and midnight. A wrong fact is worse than a missing one.
+      var afterClose = n.mins >= CLOSE_MIN;
+      until.textContent = t.opensAt + ' ' + hhmm(OPEN_MIN) + (afterClose ? ' (' + t.tomorrow + ')' : '');
     }
     if (live) {
       live.textContent = isOpen
@@ -481,8 +490,33 @@
     }
   }
 
+  /* The stepper labels are built in JS, not in the markup, so the
+     language switcher never touched them: the size chips and the +/- aria-labels
+     stayed in the language the page happened to load in. This re-labels
+     both from the current language. The order lines in #orderLines are
+     rebuilt by paintOrder() and are already correct. */
   function labelChips() {
-    // labels are set at build time from the item name; nothing to redo
+    var pane = document.getElementById('orderPane');
+    if (!pane) return;
+    var t = T();
+    var lang = document.documentElement.getAttribute('data-lang') || DEFAULT_LANG;
+    var vars = pane.querySelectorAll('.pvar');
+    for (var v = 0; v < vars.length; v++) {
+      var el = vars[v];
+      var it = ITEMS[parseInt(el.dataset.i, 10)];
+      if (!it) continue;
+      var si = parseInt(el.dataset.s, 10);
+      var nm = lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en;
+
+      // a one-size item has no size chip, and never gets a blank one
+      var lab = el.querySelector('.pvar__lab');
+      if (lab) lab.textContent = it.sizes ? t.sizeShort[si] : '';
+
+      var minus = el.querySelector('.oqty__b[data-act="minus"]');
+      var plus = el.querySelector('.oqty__b[data-act="plus"]');
+      if (minus) minus.setAttribute('aria-label', t.less + ' ' + nm);
+      if (plus) plus.setAttribute('aria-label', t.more + ' ' + nm);
+    }
   }
 
   function paintOrder() {
@@ -605,7 +639,7 @@
     var busy = function (msg) { flash(btn, msg); };
 
     if (!ORDER_API) {
-      fallbackCopy(text, function () { busy(T().copied); });
+      fallbackCopy(text, function (ok) { busy(ok ? T().copied : T().notSentNoCopy); });
       return;
     }
 
@@ -628,13 +662,13 @@
         // The order did not reach the shop. Say so, and still hand the
         // customer something they can read out or paste.
         var err = (res.j && res.j.error) || 'unknown';
-        fallbackCopy(text, function () {
-          busy(T().notSent);
+        fallbackCopy(text, function (ok) {
+          busy(ok ? T().notSent : T().notSentNoCopy);
         });
         if (window.console) console.warn('order not delivered:', err);
       }
     }).catch(function (e) {
-      fallbackCopy(text, function () { busy(T().notSent); });
+      fallbackCopy(text, function (ok) { busy(ok ? T().notSent : T().notSentNoCopy); });
       if (window.console) console.warn('order request failed:', e);
     });
   }
@@ -695,9 +729,9 @@
       copy.addEventListener('click', function () {
         if (cartCount() === 0) return;
         var text = orderText();
-        var done = function () { flash(copy, T().copied); };
+        var done = function (ok) { flash(copy, ok ? T().copied : T().notCopied); };
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+          navigator.clipboard.writeText(text).then(function () { done(true); }, function () { fallbackCopy(text, done); });
         } else {
           fallbackCopy(text, done);
         }
@@ -712,8 +746,16 @@
     paintOrder();
   }
 
-  /* clipboard API needs a secure context, which file:// and plain
-     http are not — so there is a selection-based path behind it. */
+  /* The clipboard API needs a secure context, which file:// and plain
+     http are not — so there is a selection-based path behind it.
+
+     done(ok) is called either way, with whether the text actually
+     landed in the clipboard. It used to fire only on success, which
+     meant a failed copy left the visitor with no message at all: the
+     button blinked "Sending…" and went quiet, and they could not tell
+     whether the shop had their order. Every failure path now says
+     something, because on this page a wrong fact is worse than a
+     missing one — and so is silence. */
   function fallbackCopy(text, done) {
     var ta = document.createElement('textarea');
     ta.value = text;
@@ -724,7 +766,7 @@
     var ok = false;
     try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
     document.body.removeChild(ta);
-    if (ok) done();
+    done(ok);
   }
 
   var flashTimer = null;

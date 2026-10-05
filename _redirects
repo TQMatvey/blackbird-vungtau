@@ -1,0 +1,17 @@
+# Cloudflare Pages redirects.
+#
+# Unknown paths used to answer 200 with a byte-for-byte copy of the home
+# page: /nope-404, /robots.txt and /sitemap.xml all looked like they had
+# worked. Search engines index those duplicates, and a mistyped link reads
+# as a live page instead of a mistake.
+#
+# Cloudflare Pages serves a real file first and only falls through to this
+# list when nothing matches — so /assets/app.js still comes from disk and
+# never enters here. Anything left over is a path the site does not have,
+# and the home page is the honest answer: this is a one-page site with a
+# menu, a map link and a phone number, not a set of separate pages.
+#
+# 301 so a search engine stops treating the wrong URL as a distinct page.
+# Copied into the build output by build.sh, like _headers.
+
+/*    /    301
