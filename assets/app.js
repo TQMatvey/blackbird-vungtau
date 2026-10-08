@@ -75,6 +75,7 @@
       copied: 'Copied', less: 'One fewer', more: 'One more', add: 'Add',
       sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
       notSentNoCopy: 'Not sent, and the copy failed — please call',
+
       notCopied: 'Copy failed',
       badPhone: 'Enter a phone number, for example 091 234 56 78',
       nameNeeded: 'Please add a name and a phone number',
@@ -88,6 +89,7 @@
       copied: 'Đã chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
       sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
       notSentNoCopy: 'Chưa gửi, và không chép được — xin gọi',
+
       notCopied: 'Không chép được',
       badPhone: 'Nhập số điện thoại, ví dụ 091 234 56 78',
       nameNeeded: 'Xin điền tên và số điện thoại',
@@ -102,6 +104,7 @@
       copied: 'Скопировано', less: 'На одну меньше', more: 'Добавить', add: 'Добавить',
       sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
       notSentNoCopy: 'Не отправлено и скопировать не вышло — позвоните',
+
       notCopied: 'Скопировать не вышло',
       badPhone: 'Введите номер телефона, например 091 234 56 78',
       nameNeeded: 'Укажите имя и номер телефона',
@@ -862,6 +865,7 @@
       body: JSON.stringify({
         lines: lines,
         total: vnd(cartTotal()),
+        amount: cartTotal(),
         pickup: STRINGS.en.pickup + ' ' + hhmm(shopNow().mins),
         customer: who,
         customer_chat_id: null,
@@ -871,6 +875,7 @@
     }).then(function (res) {
       if (res.ok && res.j && res.j.ok) {
         busy(T().sent + ' ' + res.j.ref);
+        showPay(res.j.ref, res.j.pay);
       } else {
         // The order did not reach the shop. Say so, and still hand the
         // customer something they can read out or paste.
@@ -884,6 +889,44 @@
       fallbackCopy(text, function (ok) { busy(ok ? T().notSent : T().notSentNoCopy); });
       if (window.console) console.warn('order request failed:', e);
     });
+  }
+
+  /* The payment panel, filled from the worker's answer. Everything that
+     must be exact — the amount and the memo that both sides read — comes
+     from the server's reference, so nothing here retypes it. If the
+     worker sent no pay block (bank not configured), this stays hidden and
+     the order stands without payment, exactly as before. */
+  function showPay(ref, pay) {
+    var box = document.getElementById('payBox');
+    if (!box) return;
+    if (!pay || !pay.url) { box.hidden = true; return; }
+    var t = T();
+    // the static labels switch with the interface through data-vi/en/ru
+    // attributes; only the values the server produced are set here.
+    document.getElementById('payQr').src = pay.url;
+    document.getElementById('payQr').alt = 'VietQR ' + ref;
+    document.getElementById('payMemoVal').textContent = ref;
+    document.getElementById('payAmount').textContent = vnd(pay.amount);
+    document.getElementById('payAcctVal').textContent = pay.account;
+    document.getElementById('payHolderVal').textContent = pay.accountName;
+    box.hidden = false;
+    if (box.scrollIntoView) {
+      var reduce = false;
+      try {
+        reduce = window.matchMedia &&
+                 window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      } catch (err) { reduce = false; }
+      box.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    }
+    // the memo is the one thing a wrong copy ruins, so offer it as a button
+    var btn = document.getElementById('payMemoCopy');
+    if (btn) {
+      btn.onclick = function () {
+        fallbackCopy(ref, function (ok) {
+          btn.textContent = ok ? t.copied : ref;
+        });
+      };
+    }
   }
 
   function wireOrder() {

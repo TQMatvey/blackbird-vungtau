@@ -516,6 +516,29 @@ finish review, the verdict, and DESIGN.md.
         <button class="btn btn--solid btn--lg" type="button" id="sendOrder" data-vi="Gửi đơn" data-en="Send order" data-ru="Отправить заказ">Send order</button>
         <button class="btn btn--lg" type="button" id="copyOrder" data-vi="Chép đơn" data-en="Copy order" data-ru="Скопировать заказ">Copy order</button>
       </div>
+
+      <!-- Appears only after the order reaches the shop, filled by the
+           worker's answer. Hidden until then, because a number the shop
+           does not know about yet is not a payment instruction. -->
+      <div class="pay" id="payBox" hidden>
+        <h4 class="pay__title" id="payTitle" data-vi="Bước 2 — thanh toán chuyển khoản" data-en="Step 2 — pay by bank transfer" data-ru="Шаг 2 — оплата переводом">Step 2 — pay by bank transfer</h4>
+        <p class="pay__step" id="payStep" data-vi="Mở app ngân hàng và quét mã QR, hoặc chép nội dung chuyển khoản." data-en="Open your banking app and scan the QR, or copy the transfer memo below." data-ru="Откройте приложение банка, отсканируйте QR или скопируйте назначение перевода.">Open your banking app and scan the QR, or copy the memo below.</p>
+        <div class="pay__body">
+          <img class="pay__qr" id="payQr" src="" alt="VietQR" width="240" height="240" loading="lazy">
+          <dl class="pay__rows">
+            <dt data-vi="Số tiền" data-en="Amount" data-ru="Сумма">Amount</dt>
+            <dd class="num" id="payAmount">—</dd>
+            <dt data-vi="Nội dung chuyển khoản" data-en="Transfer memo" data-ru="Назначение перевода">Transfer memo</dt>
+            <dd class="num"><span id="payMemoVal">—</span>
+              <button class="pay__copy" type="button" id="payMemoCopy" data-vi="Chép" data-en="Copy" data-ru="Копир">Copy</button></dd>
+            <dt data-vi="Số tài khoản" data-en="Account" data-ru="Счёт">Account</dt>
+            <dd class="num" id="payAcctVal">—</dd>
+            <dt data-vi="Người nhận" data-en="Holder" data-ru="Получатель">Holder</dt>
+            <dd id="payHolderVal">—</dd>
+          </dl>
+        </div>
+        <p class="pay__who" id="payWho" data-vi="Cửa hàng xác nhận chuyển khoản và bắt đầu làm đơn." data-en="The shop confirms the transfer on their side and starts the order." data-ru="Магазин увидит перевод и начнёт заказ.">The shop confirms the transfer on their side and starts the order.</p>
+      </div>
     </div>
   </div>
 </section>

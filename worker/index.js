@@ -30,6 +30,9 @@
  *   VIETQR_BANK_CODE    MB or BIDV
  *   VIETQR_BANK_ACCOUNT receiving account number
  *   VIETQR_BANK_NAME    account holder, no diacritics
+ *   PAY_BANK_CODE       short bank code (VCB, MB, BIDV...) for the free
+ *   PAY_BANK_ACCOUNT    receiving account shown on the payment QR
+ *   PAY_BANK_NAME       account holder, no diacritics
  */
 
 const BOT = '@tqblackbirdbot';
@@ -328,7 +331,8 @@ function orderText(o, ref) {
   if (o.total) head.push('', `<b>Total: ${esc(o.total)}</b>`);
   if (o.pickup) head.push(`Pickup: ${esc(o.pickup)}`);
 
-  head.push('', 'Nobody has taken this order yet.');
+  head.push('', 'Transfer memo: <b>' + esc(ref) + '</b>');
+  head.push('Awaiting transfer — press below once the money shows in the bank app.');
   return head.join('\n');
 }
 
@@ -338,7 +342,7 @@ function orderText(o, ref) {
 // a plain one.
 function orderKeyboard(ref) {
   return {
-    inline_keyboard: [[{ text: '📦 Order accepted', callback_data: 'accepted:' + ref }]],
+    inline_keyboard: [[{ text: '✅ Payment received', callback_data: 'paid:' + ref }]],
   };
 }
 
@@ -346,8 +350,8 @@ function orderKeyboard(ref) {
 // the callback's own copy of the message, not from storage, so this works
 // for orders that arrived hours ago and after any restart.
 function claimText(original, who, when) {
-  return original.replace(/\n*Nobody has taken this order yet\.?/, '') +
-    `\n\n<b>Order accepted by ${esc(who)}</b> — ${esc(when)}`;
+  return original.replace(/\n*Awaiting transfer —[^\n]*/, '') +
+    `\n\n<b>Paid &amp; accepted by ${esc(who)}</b> — ${esc(when)}`;
 }
 
 export default {
@@ -642,7 +646,7 @@ async function handle(request, env, ctx) {
         );
       }
 
-      return json({ ok: true, ref });
+      return json({ ok: true, ref, pay: paymentInfo(env, order.amount, ref) });
     }
 
     // ---- Telegram webhook ----------------------------------------
@@ -663,14 +667,14 @@ async function handle(request, env, ctx) {
       const cb = update && update.callback_query;
       if (cb && cb.data) {
         const data = String(cb.data);
-        if (!data.startsWith('accepted:')) return new Response('ok');
+        if (!/^(paid|accepted):/.test(data)) return new Response('ok');
         const who = [cb.from.first_name, cb.from.last_name].filter(Boolean).join(' ') ||
                     ('id' + cb.from.id);
-        const ref = data.replace(/^accepted:/, '');
+        const ref = data.replace(/^(paid|accepted):/, '');
 
         await telegram(env.TELEGRAM_BOT_TOKEN, 'answerCallbackQuery', {
           callback_query_id: cb.id,
-          text: 'Order accepted — ' + ref,
+          text: 'Payment confirmed — ' + ref,
         }).catch(() => null);
 
         const original = cb.message && cb.message.text;
@@ -703,7 +707,7 @@ async function handle(request, env, ctx) {
           .filter(Boolean).join(' ') || (msg.from ? 'id' + msg.from.id : 'someone');
         await telegram(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {
           chat_id: msg.chat.id,
-          text: `${esc(who)} says <b>${esc(text.toUpperCase())}</b> is taken.`,
+          text: `${esc(who)} says <b>${esc(text.toUpperCase())}</b> is paid and taken.`,
           parse_mode: 'HTML',
           reply_to_message_id: msg.message_id,
         }).catch(() => null);
@@ -737,6 +741,37 @@ async function handle(request, env, ctx) {
     }
 
     return json({ ok: false, error: 'not found' }, 404);
+}
+
+/* The payment block for the customer's screen.
+
+   This is NOT the VietQR merchant product and needs nothing from it:
+   img.vietqr.io turns a plain bank account into a standard VietQR image,
+   free and without keys — the same generation this repo already used in
+   tests. The money moves customer -> bank -> the shop's own account
+   directly; nobody stands in the middle and nothing is charged. The
+   transfer memo carries the order reference, so one glance at the bank
+   app answers "who paid for BB-3080" — verification stays a human with
+   the shop's banking app open, until a merchant API exists.
+
+   Deliberately absent without all three PAY_BANK_* settings, so a
+   half-configured QR can never reach a customer's screen. */
+function paymentInfo(env, amount, ref) {
+  const code = env.PAY_BANK_CODE;      // short bank code, e.g. VCB, MB, BIDV
+  const acct = env.PAY_BANK_ACCOUNT;   // receiving account number
+  const name = env.PAY_BANK_NAME;      // holder, no diacritics
+  const amt = Number(amount);
+  if (!code || !acct || !name || !(amt >= 1)) return null;
+
+  const q = 'amount=' + Math.round(amt) + '&addInfo=' + encodeURIComponent(ref) +
+            '&accountName=' + encodeURIComponent(name);
+  return {
+    url: 'https://img.vietqr.io/image/' + code + '-' + acct + '-compact2.png?' + q,
+    amount: Math.round(amt),
+    account: acct,
+    accountName: name,
+    bank: code,
+  };
 }
 
 function json(obj, status = 200) {
