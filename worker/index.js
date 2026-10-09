@@ -765,8 +765,19 @@ function paymentInfo(env, amount, ref) {
 
   const q = 'amount=' + Math.round(amt) + '&addInfo=' + encodeURIComponent(ref) +
             '&accountName=' + encodeURIComponent(name);
+  // The one-tap shortcut. This is VietQR's own app-to-app deeplink: the OS
+  // shows the customer the banking apps that support the vietqr scheme,
+  // they pick theirs and the transfer screen opens already filled. The
+  // `app` param is only a preference, not a lock — so it works for a
+  // customer at any bank, not just the one that receives. Whether the
+  // chosen app actually autofills is the bank's decision (TPBank's flags
+  // are autofill:0, which is why the QR remains the primary path).
+  const dl = 'https://dl.vietqr.io/pay?ba=' + encodeURIComponent(acct + '@' + code.toLowerCase()) +
+             '&am=' + Math.round(amt) + '&tn=' + encodeURIComponent(ref) +
+             '&app=' + code.toLowerCase();
   return {
     url: 'https://img.vietqr.io/image/' + code + '-' + acct + '-compact2.png?' + q,
+    deeplink: dl,
     amount: Math.round(amt),
     account: acct,
     accountName: name,

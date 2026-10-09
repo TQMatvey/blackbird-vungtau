@@ -525,7 +525,10 @@ finish review, the verdict, and DESIGN.md.
         <p class="pay__step" id="payStep" data-vi="Mở app ngân hàng và quét mã QR, hoặc chép nội dung chuyển khoản." data-en="Open your banking app and scan the QR, or copy the transfer memo below." data-ru="Откройте приложение банка, отсканируйте QR или скопируйте назначение перевода.">Open your banking app and scan the QR, or copy the memo below.</p>
         <div class="pay__body">
           <img class="pay__qr" id="payQr" src="" alt="VietQR" width="240" height="240" loading="lazy">
-          <dl class="pay__rows">
+          <div class="pay__right">
+            <a class="btn btn--solid btn--pay" id="payOpen" href="#" target="_blank" rel="noopener" hidden
+               data-vi="Thanh toán trong app" data-en="Pay in your bank app" data-ru="Оплатить в приложении">Pay in your bank app</a>
+            <dl class="pay__rows">
             <dt data-vi="Số tiền" data-en="Amount" data-ru="Сумма">Amount</dt>
             <dd class="num" id="payAmount">—</dd>
             <dt data-vi="Nội dung chuyển khoản" data-en="Transfer memo" data-ru="Назначение перевода">Transfer memo</dt>
@@ -535,7 +538,8 @@ finish review, the verdict, and DESIGN.md.
             <dd class="num" id="payAcctVal">—</dd>
             <dt data-vi="Người nhận" data-en="Holder" data-ru="Получатель">Holder</dt>
             <dd id="payHolderVal">—</dd>
-          </dl>
+            </dl>
+          </div>
         </div>
         <p class="pay__who" id="payWho" data-vi="Cửa hàng xác nhận chuyển khoản và bắt đầu làm đơn." data-en="The shop confirms the transfer on their side and starts the order." data-ru="Магазин увидит перевод и начнёт заказ.">The shop confirms the transfer on their side and starts the order.</p>
       </div>

@@ -904,6 +904,15 @@
     // the static labels switch with the interface through data-vi/en/ru
     // attributes; only the values the server produced are set here.
     document.getElementById('payQr').src = pay.url;
+    var open = document.getElementById('payOpen');
+    if (open) {
+      if (pay.deeplink) {
+        open.href = pay.deeplink;
+                open.hidden = false;
+      } else {
+        open.hidden = true;
+      }
+    }
     document.getElementById('payQr').alt = 'VietQR ' + ref;
     document.getElementById('payMemoVal').textContent = ref;
     document.getElementById('payAmount').textContent = vnd(pay.amount);
