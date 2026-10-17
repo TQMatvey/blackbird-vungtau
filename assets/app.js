@@ -1052,6 +1052,138 @@
   /* ---------------------------------------------------------
      boot
      --------------------------------------------------------- */
+  /* -------------------------------------------------------------
+     The dish gallery: photos in the menu rows, opened in a lightbox.
+     -------------------------------------------------------------
+     Each board row that has a matching photo gains a small thumbnail
+     button; tapping it opens the full picture in a dark overlay with
+     the dish name and price, and the arrows move between photos. The
+     mapping is dish name -> photo stem (assets/img/menu/<stem>.webp),
+     so a row with no photo is untouched and a rename in the board
+     only breaks that one dish, nothing else.
+  ------------------------------------------------------------------ */
+  var GALLERY = {
+    'Salted Salmon Pita': 'salted_salmon_pita',
+    'Grilled Pork Pita': 'grilled_pork_pita',
+    'Roast Beef Pita': 'roast_beef_pita',
+    'Camembert Cheese Pita': 'camembert_pita',
+    'Grilled Chicken Pita': 'grilled_chicken_pita',
+    'Fresh Salted Salmon': 'fresh_salted_salmon',
+    'Marinated Roast Beef': 'marinated_roast_beef',
+    'Juicy Grilled Pork Belly': 'juicy_grilled_pork',
+    'Grilled Chicken': 'grilled_chicken',
+    'Berries Pie': 'berries_pie',
+    'Apples Pie': 'apples_pie',
+    'Peaches Pie': 'peaches_pie',
+    'Cheeses & Green Mixed Pie': 'cheeses_green_pie',
+    'Mushrooms Mixed Pie': 'mushrooms_pie',
+    'Hand Made Pita Bread': 'hand_made_pita_bread',
+    'Home-made Pickle Cucumber': 'pickle_cucumber',
+    'Hand-made Sour Cream': 'hand_made_sour_cream',
+    'Hand-made Mayonnaise': 'handmade_mayonnaise',
+    'Honey Mustard Sauce': 'honey_mustard_sauce',
+    'Creamy Tzatziki Sauce': 'creamy_tzatziki_sauce',
+    'Hand-made Berry Sauce': 'hand_made_berry_sauce',
+    'Hand-made Pesto Sauce': 'pesto_sauce',
+    'Russian Apple Tea': 'russian_apple_tea',
+    'Kvas': 'kvas',
+    'Berry Milk-shakes': 'berry_milkshake',
+    'Vanilla Milk-shakes': 'vanilla_milkshake',
+    'Oreo Milk-shakes': 'oreo_milkshake',
+    'Coca Zero': 'coca_zero',
+    'Aquafina Soda': 'aquafina_soda',
+    'Beetroot Smoothie': 'beetroot_smoothie'
+  };
+
+  function wireGallery() {
+    var box = document.getElementById('lightbox');
+    if (!box) return;
+    // build the list of photos in board order, so arrows can move between
+    // them in the order a visitor reads the menu
+    var list = [];
+    var rows = document.querySelectorAll('.board .row');
+    for (var i = 0; i < rows.length; i++) {
+      var nmEl = rows[i].querySelector('.row__name');
+      if (!nmEl) continue;
+      var stem = GALLERY[nmEl.textContent.trim()];
+      if (!stem) continue;
+      var price = rows[i].querySelector('.row__price');
+      list.push({
+        stem: stem,
+        name: nmEl.textContent.trim(),
+        price: price ? price.textContent.replace(/\s+/g, ' ').trim() : ''
+      });
+      // thumbnail button inside the row body
+      var body = rows[i].querySelector('.row__body');
+      if (!body) continue;
+      rows[i].className = (rows[i].className + ' row--photo').replace(/\s+/g, ' ').trim();
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'row__thumb';
+      btn.setAttribute('aria-label', 'Photo of ' + nmEl.textContent.trim());
+      var img = document.createElement('img');
+      img.src = 'assets/img/menu/' + stem + '.webp';
+      img.alt = '';
+      img.loading = 'lazy';
+      btn.appendChild(img);
+      body.insertBefore(btn, body.firstChild);
+      // open the lightbox at this photo
+      (function (stem) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          openLightbox(list.indexOf(list.filter(function (x) { return x.stem === stem; })[0]));
+        });
+      })(stem);
+    }
+    if (!list.length) return;
+    // lightbox controls
+    window.GALLERY_LIST = list;
+    var close = box.querySelector('.lightbox__close');
+    var prev = box.querySelector('.lightbox__nav--prev');
+    var next = box.querySelector('.lightbox__nav--next');
+    function openLightbox(idx) {
+      window.GALLERY_IDX = idx;
+      var it = list[idx];
+      var img = box.querySelector('.lightbox__img');
+      img.src = 'assets/img/menu/' + it.stem + '@2x.webp';
+      img.alt = it.name;
+      box.querySelector('.lightbox__name').textContent = it.name;
+      box.querySelector('.lightbox__price').textContent = it.price;
+      box.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+    window.openLightbox = openLightbox;
+    function closeLightbox() {
+      box.hidden = true;
+      document.body.style.overflow = '';
+    }
+    window.closeLightbox = closeLightbox;
+    function move(dir) {
+      if (window.GALLERY_IDX === undefined) return;
+      var n = list.length;
+      openLightbox((window.GALLERY_IDX + dir + n) % n);
+    }
+    close.addEventListener('click', closeLightbox);
+    box.addEventListener('click', function (e) {
+      if (e.target === box) closeLightbox();
+    });
+    prev.addEventListener('click', function () { move(-1); });
+    next.addEventListener('click', function () { move(1); });
+    document.addEventListener('keydown', function (e) {
+      if (box.hidden) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') move(-1);
+      if (e.key === 'ArrowRight') move(1);
+    });
+    // swipe on touch
+    var sx = 0;
+    box.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+    box.addEventListener('touchend', function (e) {
+      var dx = e.changedTouches[0].clientX - sx;
+      if (Math.abs(dx) > 50) move(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+
   function init() {
     var saved = null;
     try { saved = localStorage.getItem('bb-lang'); } catch (e) {}
@@ -1060,6 +1192,7 @@
     wireLang();
     wireOrder();
     wireMenuJump();
+    wireGallery();
     paintProgress();
     paintDock();
 
@@ -1069,7 +1202,6 @@
     // keep the state honest if the page is left open across closing time
     setInterval(paintClock, 30000);
   }
-
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
