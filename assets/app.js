@@ -1082,6 +1082,8 @@
     'Oreo Milk-shakes': 'oreo_milkshake',
     'Coca Zero': 'coca_zero',
     'Aquafina Soda': 'aquafina_soda',
+    'Napoleon Cake': 'napoleon_cake',
+    'Full Napoleon Cake': 'napoleon_cake',
     'Beetroot Smoothie': 'beetroot_smoothie'
       };
 
@@ -1089,7 +1091,7 @@
          with long-lived cache, so a replaced .webp under the same name would
          otherwise keep serving the old picture to repeat visitors and the
          friend. Appending a version forces the browser to fetch the new file. */
-      var GALLERY_VER = 'v4';
+      var GALLERY_VER = 'v5';
 
   function wireGallery() {
     var box = document.getElementById('lightbox');
