@@ -1083,7 +1083,13 @@
     'Coca Zero': 'coca_zero',
     'Aquafina Soda': 'aquafina_soda',
     'Beetroot Smoothie': 'beetroot_smoothie'
-  };
+      };
+
+      /* Bump this when the photos change. The images are served by Cloudflare
+         with long-lived cache, so a replaced .webp under the same name would
+         otherwise keep serving the old picture to repeat visitors and the
+         friend. Appending a version forces the browser to fetch the new file. */
+      var GALLERY_VER = 'v2';
 
   function wireGallery() {
     var box = document.getElementById('lightbox');
@@ -1112,7 +1118,7 @@
       btn.className = 'row__thumb';
       btn.setAttribute('aria-label', 'Photo of ' + nmEl.textContent.trim());
       var img = document.createElement('img');
-      img.src = 'assets/img/menu/' + stem + '.webp';
+      img.src = 'assets/img/menu/' + stem + '.webp?v=' + GALLERY_VER;
       img.alt = '';
       img.loading = 'lazy';
       btn.appendChild(img);
@@ -1135,7 +1141,7 @@
       window.GALLERY_IDX = idx;
       var it = list[idx];
       var img = box.querySelector('.lightbox__img');
-      img.src = 'assets/img/menu/' + it.stem + '@2x.webp';
+      img.src = 'assets/img/menu/' + it.stem + '@2x.webp?v=' + GALLERY_VER;
       img.alt = it.name;
       box.querySelector('.lightbox__name').textContent = it.name;
       box.querySelector('.lightbox__price').textContent = it.price;
