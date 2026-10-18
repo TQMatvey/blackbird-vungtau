@@ -1089,7 +1089,7 @@
          with long-lived cache, so a replaced .webp under the same name would
          otherwise keep serving the old picture to repeat visitors and the
          friend. Appending a version forces the browser to fetch the new file. */
-      var GALLERY_VER = 'v3';
+      var GALLERY_VER = 'v4';
 
   function wireGallery() {
     var box = document.getElementById('lightbox');
