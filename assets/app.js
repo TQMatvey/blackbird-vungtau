@@ -72,6 +72,7 @@
     en: {
       open: 'Open now', until: 'until', opensAt: 'Opens at', closed: 'Closed', today: 'today', tomorrow: 'tomorrow',
       total: 'Total',
+      photoOf: 'Photo of ',
       copied: 'Copied', less: 'One fewer', more: 'One more', add: 'Add',
       sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
       notSentNoCopy: 'Not sent, and the copy failed — please call',
@@ -87,6 +88,7 @@
     vi: {
       open: 'Đang mở cửa', until: 'đến', opensAt: 'Mở cửa lúc', closed: 'Đã đóng cửa', today: 'hôm nay', tomorrow: 'ngày mai',
       total: 'Tổng',
+      photoOf: 'Ảnh của ',
       copied: 'Đã chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
       sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
       notSentNoCopy: 'Chưa gửi, và không chép được — xin gọi',
@@ -97,12 +99,13 @@
       jump: 'mở món này trong đơn của bạn',
       pickup: 'Lấy tại quán',
       free: 'Miễn phí',
-      size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
+      size: ['Lớn', 'Vừa'], sizeShort: ['L', 'M'],
       items: function (c) { return c + ' món trong đơn của bạn'; }
     },
     ru: {
       open: 'Открыто', until: 'до', opensAt: 'Открывается в', closed: 'Закрыто', today: 'сегодня', tomorrow: 'завтра',
       total: 'Итого',
+      photoOf: 'Фото: ',
       copied: 'Скопировано', less: 'На одну меньше', more: 'Добавить', add: 'Добавить',
       sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
       notSentNoCopy: 'Не отправлено и скопировать не вышло — позвоните',
@@ -113,7 +116,7 @@
       jump: 'открыть это блюдо в заказе',
       pickup: 'Самовывоз',
       free: 'Бесплатно',
-      size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
+      size: ['Большой', 'Средний'], sizeShort: ['L', 'M'],
       // Russian takes three plural forms, not two
       items: function (c) {
         var n = Math.abs(c) % 100;
@@ -303,10 +306,10 @@
     { g: 4, price: 90000,  en: 'Napoleon Cake',                  vi: 'Bánh kem xếp tầng kiểu Nga', ru: 'Наполеон' },
     { g: 4, price: 500000, en: 'Full Napoleon Cake',            vi: 'Bánh Napoleon nguyên cái',   ru: 'Наполеон целый' },
 
-    { g: 5, price: 25000,  en: 'Hand Made Pita Bread',           vi: 'Vỏ bánh Pitas thủ công',     ru: 'Питный хлеб' },
+    { g: 5, price: 25000,  en: 'Hand Made Pita Bread',           vi: 'Vỏ bánh Pitas thủ công',     ru: 'Хлеб для питы' },
     { g: 5, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối chua',       ru: 'Домашние соленья' },
 
-    { g: 6, price: 50000,  en: 'Hand-made Sour Cream',           vi: 'Sốt chua',                   ru: 'Сметана' },
+    { g: 6, price: 50000,  en: 'Hand-made Sour Cream',           vi: 'Kem chua',                   ru: 'Сметана' },
     { g: 6, price: 45000,  en: 'Hand-made Mayonnaise',           vi: 'Sốt mayonnaise',             ru: 'Майонез' },
     { g: 6, price: 55000,  en: 'Honey Mustard Sauce',            vi: 'Sốt mật ong mù tạng',       ru: 'Медово-горчичный соус' },
     { g: 6, price: 60000,  en: 'Creamy Tzatziki Sauce',          vi: 'Sốt tzatziki',              ru: 'Соус цатцики' },
@@ -319,8 +322,7 @@
     { g: 7, price: 50000,  en: 'Vanilla Milk-shakes',            vi: 'Kem Sữa Đánh Vanilla',      ru: 'Ванильный молочный коктейль' },
     { g: 7, price: 55000,  en: 'Oreo Milk-shakes',               vi: 'Sữa Lắc Oreo',              ru: 'Молочный коктейль Oreo' },
     { g: 7, price: 15000,  en: 'Coca Zero',                      vi: 'COCA KHÔNG ĐƯỜNG', ru: 'Coca Zero' },
-    { g: 7, price: 15000,  en: 'Aquafina Soda',                  vi: 'Nước khoáng có gas', ru: 'Aquafina' },
-    { g: 7, price: 0,      en: 'Regular Water',                  vi: 'Nước lọc',                   ru: 'Обычная вода' }
+    { g: 7, price: 15000,  en: 'Aquafina Soda',                  vi: 'Nước khoáng có gas', ru: 'Aquafina' }
   ];
 
   var GROUPS = [
@@ -584,7 +586,9 @@
     var rows = document.querySelectorAll('.board .row');
     for (var i = 0; i < rows.length; i++) {
       var nm = rows[i].querySelector('.row__name');
-      if (nm) out.push({ el: rows[i], n: normName(nm.textContent) });
+      // matched on the English name the row carries, which does not
+      // change when the visitor switches language
+      if (nm) out.push({ el: rows[i], n: normName(nm.getAttribute('data-en')) });
     }
     return out;
   }
@@ -683,6 +687,9 @@
       var nm = rows[i].querySelector('.row__name');
       if (!nm) continue;
       rows[i].setAttribute('aria-label', nm.textContent.trim() + ' — ' + t.jump);
+      // the photo button inside the row is labelled in the same language
+      var thumb = rows[i].querySelector('.row__thumb');
+      if (thumb) thumb.setAttribute('aria-label', t.photoOf + nm.textContent.trim());
     }
   }
 
@@ -719,7 +726,7 @@
 
         var label = document.createElement('span');
         label.className = 'oline__name';
-        label.textContent = nm + (it.sizes ? ' · ' + t.size[s] : '');
+        label.textContent = nm + (it.sizes ? ' · ' + t.sizeShort[s] : '');
 
         var step = document.createElement('div');
         step.className = 'oqty';
@@ -777,7 +784,7 @@
       var s = parseInt(p[1], 10);
       var it = ITEMS[i];
       var nm = (lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en);
-      lines.push(cart[key] + ' × ' + nm + (it.sizes ? ' · ' + t.size[s] : '') +
+      lines.push(cart[key] + ' × ' + nm + (it.sizes ? ' · ' + t.sizeShort[s] : '') +
         ' — ' + vnd(priceOf(i, s) * cart[key], t));
     }
     lines.push(t.total + ': ' + vnd(cartTotal(), t));
@@ -1106,8 +1113,7 @@
     'Adjarian Style Khachapuri': 'adjarian_khachapuri',
     'Pelmeni (Mixed Meat Dumpling)': 'pelmeni',
     'Vareniki (Potato Dumpling)': 'vareniki_potato',
-    'Cherry Vareniki': 'cherry_vareniki',
-    'Regular Water': 'regular_water'
+    'Cherry Vareniki': 'cherry_vareniki'
       };
 
       /* Bump this when the photos change. The images are served by Cloudflare
@@ -1126,14 +1132,14 @@
     for (var i = 0; i < rows.length; i++) {
       var nmEl = rows[i].querySelector('.row__name');
       if (!nmEl) continue;
-      var stem = GALLERY[nmEl.textContent.trim()];
+      // The visible name follows the page language, so the photo is
+      // looked up by the English name the row always carries.
+      var stem = GALLERY[nmEl.getAttribute('data-en')];
       if (!stem) continue;
       var price = rows[i].querySelector('.row__price');
-      list.push({
-        stem: stem,
-        name: nmEl.textContent.trim(),
-        price: price ? price.textContent.replace(/\s+/g, ' ').trim() : ''
-      });
+      // the name and the price are read when a photo is opened, not
+      // here, so the lightbox follows the language being read
+      list.push({ stem: stem, nameEl: nmEl, priceEl: price });
       // thumbnail button inside the row body
       var body = rows[i].querySelector('.row__body');
       if (!body) continue;
@@ -1141,7 +1147,7 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'row__thumb';
-      btn.setAttribute('aria-label', 'Photo of ' + nmEl.textContent.trim());
+      btn.setAttribute('aria-label', 'Photo of ' + nmEl.getAttribute('data-en'));
       var img = document.createElement('img');
       img.src = 'assets/img/menu/' + stem + '.webp?v=' + GALLERY_VER;
       img.alt = '';
@@ -1156,6 +1162,9 @@
         });
       })(stem);
     }
+    // the photo buttons were just created, so they are labelled here too,
+    // in whatever language the page is being read
+    relabelMenuJump();
     if (!list.length) return;
     // lightbox controls
     window.GALLERY_LIST = list;
@@ -1167,9 +1176,11 @@
       var it = list[idx];
       var img = box.querySelector('.lightbox__img');
       img.src = 'assets/img/menu/' + it.stem + '@2x.webp?v=' + GALLERY_VER;
-      img.alt = it.name;
-      box.querySelector('.lightbox__name').textContent = it.name;
-      box.querySelector('.lightbox__price').textContent = it.price;
+      var nm = it.nameEl.textContent.trim();
+      img.alt = nm;
+      box.querySelector('.lightbox__name').textContent = nm;
+      box.querySelector('.lightbox__price').textContent =
+        it.priceEl ? it.priceEl.textContent.replace(/\s+/g, ' ').trim() : '';
       box.hidden = false;
       document.body.style.overflow = 'hidden';
     }

@@ -2,6 +2,18 @@
 
 <!-- impeccable:product-schema 1 -->
 
+> **Revision 5 — 2026-10-21.** Three changes at the owner's instruction:
+> **Regular Water is removed** (the free still water is no longer offered, its
+> photo files are deleted with it), **the menu board's dish names now follow
+> the page language** (the name line carried only English before; it now
+> switches EN/VI/RU exactly like the order builder does, and the small line
+> under it is a real qualifier — the sauce, the portion, the prep — written
+> in the same language), and **the order builder always shows the size as
+> L / M** in every language, in the picker, the order list and the customer's
+> copied order. The menu is **31 items in 7 groups**. The board and the
+> builder's name table are now compared in all three languages by
+> `scripts/check-board-vs-items.mjs`.
+>
 > **Revision 4 — 2026-10-21.** The owner re-issued the printed board
 > (`MENU_IN_NEWVER_1/2/3.psd`). Fourteen prices moved, five positions are new
 > (a **Hot food** group of four Russian/Adjarian dishes, and a **free** still
@@ -113,85 +125,81 @@ photograph, Google Maps, Foody.vn and ShopeeFood.vn.
 
 ### The real menu, read off the owner's own menu boards
 
-**32 items in 7 groups, prices exactly as printed.** Source: the owner's
+**31 items in 7 groups, prices exactly as printed.** Source: the owner's
 re-issued board — `MENU_IN_NEWVER_1.psd`, `MENU_IN_NEWVER_2.psd` and
 `MENU_IN_NEWVER_3.psd`, read at full resolution — plus the Full Napoleon
-Cake price (500.000) given directly by the owner.
+Cake price (500.000) given directly by the owner. The board also prints a
+free still water, which the owner has struck from the site, so it is not
+listed here either.
 
-**All 32 ship on the site.** The Cold Platters, Tofu Pita and Beetroot-Apple
+**All 31 ship on the site.** The Cold Platters, Tofu Pita and Beetroot-Apple
 Mixed Smoothie are gone from the new board, so nothing is excluded any more.
 
 **Pitas** — each sold Large and Medium
 
-| # | English | Tiếng Việt | Large | Medium |
+| # | English | Русский | Tiếng Việt | Large | Medium |
 |---|---|---|---|---|
-| 1 | Salted Salmon Pita (tzatziki) | Bánh cá hồi muối tươi lạnh | 135.000 | 95.000 |
-| 2 | Grilled Pork Pita (fresh mayo) | Bánh thịt heo nướng thơm | 135.000 | 95.000 |
-| 3 | Roast Beef Pita (honey mustard) | Bánh thịt bò nướng mọng | 135.000 | 95.000 |
-| 4 | Camembert Cheese Pita (berry) | Bánh Camembert Cheese Ý | 135.000 | 95.000 |
-| 5 | Grilled Chicken Pita (tzatziki) | Bánh thịt gà nướng thơm | 135.000 | 95.000 |
+| 1 | Salted Salmon Pita (tzatziki) | Пита с солёным лососем | Bánh cá hồi muối tươi lạnh | 135.000 | 95.000 |
+| 2 | Grilled Pork Pita (fresh mayo) | Пита с жареной свининой | Bánh thịt heo nướng thơm | 135.000 | 95.000 |
+| 3 | Roast Beef Pita (honey mustard) | Пита с жареной говядиной | Bánh thịt bò nướng mọng | 135.000 | 95.000 |
+| 4 | Camembert Cheese Pita (berry) | Пита с камамбером | Bánh Camembert Cheese Ý | 135.000 | 95.000 |
+| 5 | Grilled Chicken Pita (tzatziki) | Пита с жареной курицей | Bánh thịt gà nướng thơm | 135.000 | 95.000 |
 
 **Pies — all 180.000**
 
-| # | English | Tiếng Việt |
-|---|---|---|
-| 6 | Berries Pie | Bánh nướng quả mọng |
-| 7 | Apples Pie | Bánh nướng táo |
-| 8 | Peaches Pie | Bánh nướng đào |
-| 9 | Cheeses & Green Mixed Pie | Bánh nướng phô mai và rau mix |
-| 10 | Mushrooms Mixed Pie | Bánh nướng nấm mix |
+| # | English | Русский | Tiếng Việt |
+|---|---|---|---|
+| 6 | Berries Pie | Пирог с ягодами | Bánh nướng quả mọng |
+| 7 | Apples Pie | Пирог с яблоками | Bánh nướng táo |
+| 8 | Peaches Pie | Пирог с персиками | Bánh nướng đào |
+| 9 | Cheeses & Green Mixed Pie | Пирог с сыром и зеленью | Bánh nướng phô mai và rau mix |
+| 10 | Mushrooms Mixed Pie | Пирог с грибами | Bánh nướng nấm mix |
 
 **Hot food** — new on this board
 
-| # | English | Tiếng Việt | Price |
+| # | English | Русский | Tiếng Việt | Price |
 |---|---|---|---|
-| 11 | Adjarian Style Khachapuri | Bánh Adjarian | 320.000 Large / 180.000 Medium |
-| 12 | Pelmeni (Mixed Meat Dumpling) | Bánh hấp thịt kiểu Nga | 90.000 |
-| 13 | Vareniki (Potato Dumpling) | Bánh hấp khoai tây kiểu Nga | 80.000 |
-| 14 | Cherry Vareniki | Bánh hấp cherry kiểu Nga | 160.000 |
+| 11 | Adjarian Style Khachapuri | Аджарский хачапури | Bánh Adjarian | 320.000 Large / 180.000 Medium |
+| 12 | Pelmeni (Mixed Meat Dumpling) | Пельмени с мясом | Bánh hấp thịt kiểu Nga | 90.000 |
+| 13 | Vareniki (Potato Dumpling) | Вареники с картофелем | Bánh hấp khoai tây kiểu Nga | 80.000 |
+| 14 | Cherry Vareniki | Вареники с вишней | Bánh hấp cherry kiểu Nga | 160.000 |
 
 **Sweet**
 
-| # | English | Tiếng Việt | Price |
+| # | English | Русский | Tiếng Việt | Price |
 |---|---|---|---|
-| 15 | Napoleon Cake | Bánh kem xếp tầng kiểu Nga | 90.000 / piece |
-| 16 | Full Napoleon Cake | Bánh Napoleon nguyên cái | 500.000 / cake |
+| 15 | Napoleon Cake | Наполеон | Bánh kem xếp tầng kiểu Nga | 90.000 / piece |
+| 16 | Full Napoleon Cake | Наполеон целый | Bánh Napoleon nguyên cái | 500.000 / cake |
 
 **Bread and pickles**
 
-| # | English | Tiếng Việt | Price |
+| # | English | Русский | Tiếng Việt | Price |
 |---|---|---|---|
-| 17 | Hand Made Pita Bread | Vỏ bánh Pitas thủ công | 25.000 / piece |
-| 18 | Home-made Pickle Cucumber | Dưa chuột muối chua | 50.000 / 100 gr |
+| 17 | Hand Made Pita Bread | Хлеб для питы | Vỏ bánh Pitas thủ công | 25.000 / piece |
+| 18 | Home-made Pickle Cucumber | Домашние соленья | Dưa chuột muối chua | 50.000 / 100 gr |
 
 **Hand-made sauces — per 100 ml**
 
-| # | English | Price |
+| # | English | Русский | Price |
 |---|---|---|
-| 19 | Hand-made Sour Cream | 50.000 |
-| 20 | Hand-made Mayonnaise | 45.000 |
-| 21 | Honey Mustard Sauce | 55.000 |
-| 22 | Creamy Tzatziki Sauce | 60.000 |
-| 23 | Hand-made Berry Sauce | 60.000 |
-| 24 | Hand-made Pesto Sauce | 45.000 |
+| 19 | Hand-made Sour Cream | Сметана | 50.000 |
+| 20 | Hand-made Mayonnaise | Майонез | 45.000 |
+| 21 | Honey Mustard Sauce | Медово-горчичный соус | 55.000 |
+| 22 | Creamy Tzatziki Sauce | Соус цатцики | 60.000 |
+| 23 | Hand-made Berry Sauce | Ягодный соус | 60.000 |
+| 24 | Hand-made Pesto Sauce | Соус песто | 45.000 |
 
 **Drinks**
 
-| # | English | Tiếng Việt | Price |
+| # | English | Русский | Tiếng Việt | Price |
 |---|---|---|---|
-| 25 | Russian Apple Tea | Nước đun táo giải nhiệt | 30.000 |
-| 26 | Kvas | Nước lúa mạch lên men | 25.000 |
-| 27 | Berry Milk-shakes | Sữa Lắc Trái Mọng | 55.000 |
-| 28 | Vanilla Milk-shakes | Kem Sữa Đánh Vanilla | 50.000 |
-| 29 | Oreo Milk-shakes | Sữa Lắc Oreo | 55.000 |
-| 30 | Coca Zero | COCA KHÔNG ĐƯỜNG | 15.000 |
-| 31 | Aquafina Soda | Nước khoáng có gas | 15.000 |
-| 32 | Regular Water | Nước lọc | Free |
-
-**The free water is priced as the board prints it** — the word FREE, not
-0đ. On the site it reads "Free" in every place a price appears: the board
-row, the order picker, the order list and the order text. A 0đ line reads
-like a mistake.
+| 25 | Russian Apple Tea | Русский яблочный чай | Nước đun táo giải nhiệt | 30.000 |
+| 26 | Kvas | Квас | Nước lúa mạch lên men | 25.000 |
+| 27 | Berry Milk-shakes | Ягодный молочный коктейль | Sữa Lắc Trái Mọng | 55.000 |
+| 28 | Vanilla Milk-shakes | Ванильный молочный коктейль | Kem Sữa Đánh Vanilla | 50.000 |
+| 29 | Oreo Milk-shakes | Молочный коктейль Oreo | Sữa Lắc Oreo | 55.000 |
+| 30 | Coca Zero | Coca Zero | COCA KHÔNG ĐƯỜNG | 15.000 |
+| 31 | Aquafina Soda | Aquafina | Nước khoáng có gas | 15.000 |
 
 **[verified: the owner's own photographs of the shop's boards, read at full
 resolution; Napoleon price given directly by the owner]**
@@ -417,7 +425,8 @@ assistive technology; motion respects `prefers-reduced-motion`.
    confirmed by the owner and printed on the shop's own visit card. The page
    shows it as the address and names `N4/4 Bầu Sen 6` as the older board
    wording.
-3. **The menu is 32 items in 7 groups, and it is the new board.**
+3. **The menu is 31 items in 7 groups, and it is the new board** — the free
+   still water the board prints is not offered, at the owner's instruction.
    Every price on the page comes from `MENU_IN_NEWVER_1/2/3.psd`. If the kitchen
    changes anything, it must be added in **two places**: the `.board` list in
    `index.html` and the `ITEMS` table in `assets/app.js`, and `node

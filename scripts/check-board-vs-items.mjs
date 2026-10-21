@@ -35,8 +35,11 @@ const decode = (v) => String(v || '')
   .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
   .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 
-const nameOf = (r) => {
-  const m = r.match(/<h4 class="row__name">([\s\S]*?)<\/h4>/);
+// The name line carries all three languages in attributes, so the visible
+// English text is only the no-JS fallback. The attributes are what the
+// language switcher, the photo lookup and the click-through all read.
+const nameOf = (r, lang) => {
+  const m = r.match(new RegExp('<h4 class="row__name"[^>]*data-' + lang + '="([^"]*)"'));
   return m ? decode(m[1]).replace(/\s+/g, ' ').trim() : null;
 };
 
@@ -62,8 +65,14 @@ const norm = (v) => decode(v).replace(/\s+/g, ' ').trim().toLowerCase();
 let matched = 0, unmatched = 0, drift = 0, orderOk = 0;
 const problems = [];
 
+// The board and ITEMS are hand-edited in two files, and now in three
+// languages: a name that drifts in Vietnamese or Russian leaves the
+// visitor reading a name the builder does not know.
+const LANG_NAMES = ['en', 'vi', 'ru'];
+let nameDrift = 0;
+
 rows.forEach((r, k) => {
-  const nm = nameOf(r);
+  const nm = nameOf(r, 'en');
   const pr = freeOf(r) ? [0] : pricesOf(r);
   const ix = ITEMS.findIndex((it) => norm(it.en) === norm(nm));
   if (ix < 0) {
@@ -72,7 +81,16 @@ rows.forEach((r, k) => {
     return;
   }
   matched++;
-  const expected = ITEMS[ix].sizes || [ITEMS[ix].price];
+  const it = ITEMS[ix];
+  for (const lang of LANG_NAMES) {
+    const onBoard = nameOf(r, lang);
+    if (norm(onBoard) !== norm(it[lang])) {
+      drift++;
+      nameDrift++;
+      problems.push(`NAME DRIFT (${lang}): ${it.en} — board "${onBoard}" vs builder "${it[lang]}"`);
+    }
+  }
+  const expected = it.sizes || [it.price];
   const a = [...pr].sort((x, y) => x - y).join(',');
   const b = [...expected].sort((x, y) => x - y).join(',');
   if (a !== b) {
@@ -85,12 +103,13 @@ rows.forEach((r, k) => {
 console.log();
 console.log('matched by dish name:        ', matched, 'of', rows.length);
 console.log('unmatched (not clickable):   ', unmatched);
-console.log('price drift board vs builder:', drift);
+console.log('name drift en/vi/ru:         ', nameDrift);
+console.log('price drift board vs builder:', drift - nameDrift);
 console.log('board order == ITEMS order:  ', orderOk, 'of', rows.length);
 console.log();
 if (problems.length) {
   problems.forEach(p => console.log('   ', p));
   process.exitCode = 1;
 } else {
-  console.log('   clean: every board row maps to an orderable item, same prices, same order');
+  console.log('   clean: every board row maps to an orderable item, same names in all three languages, same prices, same order');
 }
