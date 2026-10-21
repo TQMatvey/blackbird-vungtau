@@ -47,6 +47,16 @@ const nameOf = (r) => {
 const pricesOf = (r) => [...r.matchAll(/([\d.]+)<span class="row__cur">/g)]
   .map(m => Number(m[1].replace(/\./g, '')));
 
+// A free item prints "Free" instead of a number — the board prices still
+// water as FREE, not as 0đ. It is a real price of zero, so it is read
+// as one here, and a row that says "Free" but is not priced 0 in the
+// builder is a drift like any other.
+const freeOf = (r) => {
+  const p = r.match(/<p class="row__price[^>]*>([\s\S]*?)<\/p>/);
+  if (!p) return false;
+  return /free/i.test(decode(p[1]).replace(/<[^>]*>/g, ''));
+};
+
 const norm = (v) => decode(v).replace(/\s+/g, ' ').trim().toLowerCase();
 
 let matched = 0, unmatched = 0, drift = 0, orderOk = 0;
@@ -54,7 +64,7 @@ const problems = [];
 
 rows.forEach((r, k) => {
   const nm = nameOf(r);
-  const pr = pricesOf(r);
+  const pr = freeOf(r) ? [0] : pricesOf(r);
   const ix = ITEMS.findIndex((it) => norm(it.en) === norm(nm));
   if (ix < 0) {
     unmatched++;

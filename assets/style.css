@@ -398,6 +398,14 @@ html[data-lang="ru"] .day__shifts li{ letter-spacing:.01em; text-transform:none;
   text-transform:uppercase; color:rgba(58,52,46,.85);
 }
 
+/* A free item. The board prints it as FREE, in words, so the site does
+   too — "Free" reads as an intention and "0đ" reads as a mistake. */
+.row__price--free{
+  color:var(--marigold-ink);
+  text-transform:uppercase; letter-spacing:.06em;
+  font-size:.82rem;
+}
+
 /* Two prices on one row — the pitas. Each size gets its own line
    with its own label, so 120.000/80.000 is never ambiguous. */
 .row__price--two{ display:grid; gap:.1rem; justify-items:end; }

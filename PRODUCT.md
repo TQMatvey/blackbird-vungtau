@@ -2,6 +2,14 @@
 
 <!-- impeccable:product-schema 1 -->
 
+> **Revision 4 — 2026-10-21.** The owner re-issued the printed board
+> (`MENU_IN_NEWVER_1/2/3.psd`). Fourteen prices moved, five positions are new
+> (a **Hot food** group of four Russian/Adjarian dishes, and a **free** still
+> water), and the Cold Platters are gone from the board entirely — they were
+> removed from the site earlier, and the new board agrees. The menu is now
+> **32 items in 7 groups**. Every price below is read off the new board's own
+> text layers; the photos for the new dishes come from the same board.
+>
 > **Revision 3 — 2026-09-28.** Revision 2 replaced the inferred brief with
 > evidence read from the business's own links. This revision records what the
 > owner changed:
@@ -14,7 +22,8 @@
 >    prices had moved, and several items did not exist. The new menu is
 >    **31 items in 7 groups**, exactly as the boards print them. **Tofu Pita is
 >    excluded, and Beetroot-Apple Mixed Smoothie is removed, both at the owner's
->    instruction.**
+>    instruction.** *(Superseded: the new board has neither, and no longer
+>    carries the Cold Platters either — see Revision 4.)*
 > 3. **All photographs are removed from the page.** The earlier image set was
 >    wrong — a burger the shop does not sell, and other mismatches. The page
 >    now ships with no images. `assets/img/` is empty and waiting.
@@ -104,90 +113,85 @@ photograph, Google Maps, Foody.vn and ShopeeFood.vn.
 
 ### The real menu, read off the owner's own menu boards
 
-**31 items in 7 groups, prices exactly as printed.** Source: the owner's
-photographs of the shop's boards — `menu1.jpg`, `menu2.jpg`, `menu_pies.jpg` —
-plus the Napoleon price given directly (70.000 per piece).
+**32 items in 7 groups, prices exactly as printed.** Source: the owner's
+re-issued board — `MENU_IN_NEWVER_1.psd`, `MENU_IN_NEWVER_2.psd` and
+`MENU_IN_NEWVER_3.psd`, read at full resolution — plus the Full Napoleon
+Cake price (500.000) given directly by the owner.
 
-**30 ship on the site.** Tofu Pita and Beetroot-Apple Mixed Smoothie are
-excluded at the owner's instruction and are listed below for completeness.
-
-This replaces the nine-item list from Revision 2, which was read off a different,
-older board. Most of those prices were wrong, and two items in it (Hand-made
-Pita Skin at 10.000, Beetroot Apple Juice) are priced quite differently now.
+**All 32 ship on the site.** The Cold Platters, Tofu Pita and Beetroot-Apple
+Mixed Smoothie are gone from the new board, so nothing is excluded any more.
 
 **Pitas** — each sold Large and Medium
 
 | # | English | Tiếng Việt | Large | Medium |
 |---|---|---|---|---|
-| 1 | Salted Salmon Pita (tzatziki) | Bánh cá hồi muối tươi lạnh | 120.000 | 80.000 |
-| 2 | Grilled Pork Pita (fresh mayo) | Bánh thịt heo nướng thơm | 120.000 | 80.000 |
-| 3 | Roast Beef Pita (honey mustard) | Bánh thịt bò nướng mọng | 120.000 | 80.000 |
-| 4 | Camembert Cheese Pita (berry) | Bánh Camembert Cheese Ý | 120.000 | 80.000 |
-| 5 | Grilled Chicken Pita (tzatziki) | Bánh thịt gà nướng thơm | 120.000 | 80.000 |
-
-*Tofu Pita (vegetarian), 80.000 / 65.000, is printed on the board but is excluded
-from the site at the owner's instruction.*
-
-**Cold Platters — per 100 gram**, the owner's name for the by-weight group
-(was "Sold by weight")
-
-| # | English | Tiếng Việt | Price |
-|---|---|---|---|
-| 6 | Fresh Salted Salmon | Cá hồi muối tươi | 120.000 |
-| 7 | Marinated Roast Beef | Bò nướng mọng kiểu Âu | 90.000 |
-| 8 | Juicy Grilled Pork Belly | Thịt heo ba rọt nướng | 90.000 |
-| 9 | Grilled Chicken | Gà nướng thơm | 90.000 |
+| 1 | Salted Salmon Pita (tzatziki) | Bánh cá hồi muối tươi lạnh | 135.000 | 95.000 |
+| 2 | Grilled Pork Pita (fresh mayo) | Bánh thịt heo nướng thơm | 135.000 | 95.000 |
+| 3 | Roast Beef Pita (honey mustard) | Bánh thịt bò nướng mọng | 135.000 | 95.000 |
+| 4 | Camembert Cheese Pita (berry) | Bánh Camembert Cheese Ý | 135.000 | 95.000 |
+| 5 | Grilled Chicken Pita (tzatziki) | Bánh thịt gà nướng thơm | 135.000 | 95.000 |
 
 **Pies — all 180.000**
 
 | # | English | Tiếng Việt |
 |---|---|---|
-| 10 | Berries Pie | Bánh nướng quả mọng |
-| 11 | Apples Pie | Bánh nướng táo |
-| 12 | Peaches Pie | Bánh nướng đào |
-| 13 | Cheeses & Green Mixed Pie | Bánh nướng phô mai và rau mix |
-| 14 | Mushrooms Mixed Pie | Bánh nướng nấm mix |
+| 6 | Berries Pie | Bánh nướng quả mọng |
+| 7 | Apples Pie | Bánh nướng táo |
+| 8 | Peaches Pie | Bánh nướng đào |
+| 9 | Cheeses & Green Mixed Pie | Bánh nướng phô mai và rau mix |
+| 10 | Mushrooms Mixed Pie | Bánh nướng nấm mix |
+
+**Hot food** — new on this board
+
+| # | English | Tiếng Việt | Price |
+|---|---|---|---|
+| 11 | Adjarian Style Khachapuri | Bánh Adjarian | 320.000 Large / 180.000 Medium |
+| 12 | Pelmeni (Mixed Meat Dumpling) | Bánh hấp thịt kiểu Nga | 90.000 |
+| 13 | Vareniki (Potato Dumpling) | Bánh hấp khoai tây kiểu Nga | 80.000 |
+| 14 | Cherry Vareniki | Bánh hấp cherry kiểu Nga | 160.000 |
 
 **Sweet**
 
 | # | English | Tiếng Việt | Price |
 |---|---|---|---|
-| 15 | Napoleon Cake | Bánh Napoleon | 70.000 / piece |
+| 15 | Napoleon Cake | Bánh kem xếp tầng kiểu Nga | 90.000 / piece |
 | 16 | Full Napoleon Cake | Bánh Napoleon nguyên cái | 500.000 / cake |
 
 **Bread and pickles**
 
 | # | English | Tiếng Việt | Price |
 |---|---|---|---|
-| 17 | Hand Made Pita Bread | Vỏ bánh Pitas thủ công | 20.000 / piece |
+| 17 | Hand Made Pita Bread | Vỏ bánh Pitas thủ công | 25.000 / piece |
 | 18 | Home-made Pickle Cucumber | Dưa chuột muối chua | 50.000 / 100 gr |
 
 **Hand-made sauces — per 100 ml**
 
 | # | English | Price |
 |---|---|---|
-| 19 | Hand-made Sour Cream | 45.000 |
-| 20 | Hand-made Mayonnaise | 40.000 |
-| 21 | Honey Mustard Sauce | 50.000 |
-| 22 | Creamy Tzatziki Sauce | 55.000 |
-| 23 | Hand-made Berry Sauce | 55.000 |
-| 24 | Hand-made Pesto Sauce | 40.000 |
+| 19 | Hand-made Sour Cream | 50.000 |
+| 20 | Hand-made Mayonnaise | 45.000 |
+| 21 | Honey Mustard Sauce | 55.000 |
+| 22 | Creamy Tzatziki Sauce | 60.000 |
+| 23 | Hand-made Berry Sauce | 60.000 |
+| 24 | Hand-made Pesto Sauce | 45.000 |
 
 **Drinks**
 
 | # | English | Tiếng Việt | Price |
 |---|---|---|---|
-| 25 | Russian Apple Tea | Nước đun táo giãi nhiệt | 25.000 |
+| 25 | Russian Apple Tea | Nước đun táo giải nhiệt | 30.000 |
 | 26 | Kvas | Nước lúa mạch lên men | 25.000 |
-| 27 | Berry Milk-shakes | Sữa Lắc Trái Cây | 55.000 |
+| 27 | Berry Milk-shakes | Sữa Lắc Trái Mọng | 55.000 |
 | 28 | Vanilla Milk-shakes | Kem Sữa Đánh Vanilla | 50.000 |
 | 29 | Oreo Milk-shakes | Sữa Lắc Oreo | 55.000 |
-| 30 | Coca Zero | Coca Zero | 15.000 |
-| 31 | Aquafina Soda | Aquafina | 15.000 |
+| 30 | Coca Zero | COCA KHÔNG ĐƯỜNG | 15.000 |
+| 31 | Aquafina Soda | Nước khoáng có gas | 15.000 |
+| 32 | Regular Water | Nước lọc | Free |
 
-**Removed at the owner's instruction:** Beetroot-Apple Mixed Smoothie, 45.000
-(Nước ép củ dền táo). It is printed on the board but is not offered on the
-site.
+**The free water is priced as the board prints it** — the word FREE, not
+0đ. On the site it reads "Free" in every place a price appears: the board
+row, the order picker, the order list and the order text. A 0đ line reads
+like a mistake.
 
 **[verified: the owner's own photographs of the shop's boards, read at full
 resolution; Napoleon price given directly by the owner]**
@@ -259,7 +263,7 @@ page now takes an **order** instead:
   column was a wall; this shows five to eight rows with every group one tap
   away. Tabs respond to ← / → as a tablist should.
 - Every row carries a **real stepper — minus, count, plus — and one row per
-  size**, so a pita is two countable lines (`L 120.000đ` and `M 80.000đ`) rather
+  size**, so a pita is two countable lines (`L 135.000đ` and `M 95.000đ`) rather
   than one line with a hidden mode. A row turns crimson when it holds a
   quantity.
 
@@ -270,7 +274,7 @@ page now takes an **order** instead:
   - **Making the price chip itself a toggle** — tap to add, tap again to
     remove — was rejected because it could never reach a quantity above one,
     and a control that means two different things depending on its state is not
-    a control anyone can predict.- The five pitas have **two chips each** (`L 120.000đ` / `M 80.000đ`), so the
+    a control anyone can predict.- The five pitas have **two chips each** (`L 135.000đ` / `M 95.000đ`), so the
   sizes are never ambiguous, and the two are independently removable.
 - The cart is keyed by **item *and* size** (`"0:1"`), not by item. That is what
   lets someone order two medium salmon pitas and one large of the same pita:
@@ -413,7 +417,11 @@ assistive technology; motion respects `prefers-reduced-motion`.
    confirmed by the owner and printed on the shop's own visit card. The page
    shows it as the address and names `N4/4 Bầu Sen 6` as the older board
    wording.
-3. **The menu is 31 items: the boards have 32, less the two excluded.**
+3. **The menu is 32 items in 7 groups, and it is the new board.**
+   Every price on the page comes from `MENU_IN_NEWVER_1/2/3.psd`. If the kitchen
+   changes anything, it must be added in **two places**: the `.board` list in
+   `index.html` and the `ITEMS` table in `assets/app.js`, and `node
+   scripts/check-board-vs-items.mjs` will say so if they drift apart.
    If the kitchen sells more, they must be added in **two places**: the `.board`
    list in `index.html` and the `ITEMS` table in `assets/app.js`. The order
    builder carries its own copy of the items and prices, and the two will drift

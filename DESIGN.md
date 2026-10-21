@@ -114,9 +114,9 @@ the Vietnamese format (`85.000đ`) because that is what the board shows.
    **readout constellation**: live open/closed with the closing time, hours,
    phone, address, Google rating. Below, the **day-strip** — the track, the
    fill, the now-marker, and five clock labels.
-3. **Menu** — the 30 real items as **seven category cards** in a responsive
-   grid: Pitas, Cold Platters, Pies, Sweet, Bread and pickles, Hand-made
-   sauces, Drinks. Three columns on desktop, two on tablet, one on a phone.
+3. **Menu** — the 32 real items as **seven category cards** in a responsive
+   grid: Pitas, Pies, Hot food, Sweet, Bread and pickles, Hand-made sauces,
+   Drinks. Three columns on desktop, two on tablet, one on a phone.
 
    Thirty items in one column was about 2,100px of scroll and it asked the
    reader to remember which group a dish belonged to from the last crimson bar
@@ -127,7 +127,8 @@ the Vietnamese format (`85.000đ`) because that is what the board shows.
    of it — a one-item card beside a six-item card otherwise leaves bare cream
    beneath it, which reads as a mistake rather than as a grid.
    - **Pitas** carry two prices, each on its own line with its own label, so
-     `120.000 LARGE / 80.000 MEDIUM` is never read as one ambiguous figure.
+     `135.000 LARGE / 95.000 MEDIUM` is never read as one ambiguous figure.
+     The **khachapuri** does the same, for the same reason.
    - **Pies** all cost 180.000, and each row says so. An attempt to hoist that
      single price into the group header was reverted: it read as a caption
      rather than a price, and a customer scanning the list wants the number

@@ -81,6 +81,7 @@
       nameNeeded: 'Please add a name and a phone number',
       jump: 'open this in your order',
       pickup: 'Pickup',
+      free: 'Free',
       size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
     },
     vi: {
@@ -95,6 +96,7 @@
       nameNeeded: 'Xin điền tên và số điện thoại',
       jump: 'mở món này trong đơn của bạn',
       pickup: 'Lấy tại quán',
+      free: 'Miễn phí',
       size: ['Lớn', 'Vừa'], sizeShort: ['L', 'V'],
       items: function (c) { return c + ' món trong đơn của bạn'; }
     },
@@ -110,6 +112,7 @@
       nameNeeded: 'Укажите имя и номер телефона',
       jump: 'открыть это блюдо в заказе',
       pickup: 'Самовывоз',
+      free: 'Бесплатно',
       size: ['Большой', 'Средний'], sizeShort: ['Б', 'С'],
       // Russian takes three plural forms, not two
       items: function (c) {
@@ -279,43 +282,51 @@
      --------------------------------------------------------- */
   var ITEMS = [
     // pitas: two sizes, and the size changes the price
-    { g: 1, price: 120000, sizes: [120000, 80000], en: 'Salted Salmon Pita',       vi: 'Bánh cá hồi muối tươi lạnh', ru: 'Пита с солёным лососем' },
-    { g: 1, price: 120000, sizes: [120000, 80000], en: 'Grilled Pork Pita',        vi: 'Bánh thịt heo nướng thơm',   ru: 'Пита с жареной свининой' },
-    { g: 1, price: 120000, sizes: [120000, 80000], en: 'Roast Beef Pita',          vi: 'Bánh thịt bò nướng mọng',    ru: 'Пита с жареной говядиной' },
-    { g: 1, price: 120000, sizes: [120000, 80000], en: 'Camembert Cheese Pita',    vi: 'Bánh Camembert Cheese Ý',   ru: 'Пита с камамбером' },
-    { g: 1, price: 120000, sizes: [120000, 80000], en: 'Grilled Chicken Pita',     vi: 'Bánh thịt gà nướng thơm',    ru: 'Пита с жареной курицей' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Salted Salmon Pita',       vi: 'Bánh cá hồi muối tươi lạnh', ru: 'Пита с солёным лососем' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Grilled Pork Pita',        vi: 'Bánh thịt heo nướng thơm',   ru: 'Пита с жареной свининой' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Roast Beef Pita',          vi: 'Bánh thịt bò nướng mọng',    ru: 'Пита с жареной говядиной' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Camembert Cheese Pita',    vi: 'Bánh Camembert Cheese Ý',   ru: 'Пита с камамбером' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Grilled Chicken Pita',     vi: 'Bánh thịt gà nướng thơm',    ru: 'Пита с жареной курицей' },
 
     { g: 2, price: 180000, en: 'Berries Pie',                    vi: 'Bánh nướng quả mọng',       ru: 'Пирог с ягодами' },
     { g: 2, price: 180000, en: 'Apples Pie',                     vi: 'Bánh nướng táo',             ru: 'Пирог с яблоками' },
     { g: 2, price: 180000, en: 'Peaches Pie',                    vi: 'Bánh nướng đào',             ru: 'Пирог с персиками' },
-    { g: 2, price: 180000, en: 'Cheeses & Green Mixed Pie',      vi: 'Bánh nướng phô mai và rau',  ru: 'Пирог с сыром и зеленью' },
-    { g: 2, price: 180000, en: 'Mushrooms Mixed Pie',            vi: 'Bánh nướng nấm',            ru: 'Пирог с грибами' },
+    { g: 2, price: 180000, en: 'Cheeses & Green Mixed Pie',      vi: 'Bánh nướng phô mai và rau mix',  ru: 'Пирог с сыром и зеленью' },
+    { g: 2, price: 180000, en: 'Mushrooms Mixed Pie',            vi: 'Bánh nướng nấm mix',            ru: 'Пирог с грибами' },
 
-    { g: 3, price: 70000,  en: 'Napoleon Cake',                  vi: 'Bánh Napoleon',              ru: 'Наполеон' },
-    { g: 3, price: 500000, en: 'Full Napoleon Cake',            vi: 'Bánh Napoleon nguyên cái',   ru: 'Наполеон целый' },
+    // hot food, off the same board as the pies
+    { g: 3, price: 320000, sizes: [320000, 180000], en: 'Adjarian Style Khachapuri', vi: 'Bánh Adjarian', ru: 'Аджарский хачапури' },
+    { g: 3, price: 90000,  en: 'Pelmeni (Mixed Meat Dumpling)', vi: 'Bánh hấp thịt kiểu Nga',   ru: 'Пельмени с мясом' },
+    { g: 3, price: 80000,  en: 'Vareniki (Potato Dumpling)',    vi: 'Bánh hấp khoai tây kiểu Nga', ru: 'Вареники с картофелем' },
+    { g: 3, price: 160000, en: 'Cherry Vareniki',               vi: 'Bánh hấp cherry kiểu Nga',   ru: 'Вареники с вишней' },
 
-    { g: 4, price: 20000,  en: 'Hand Made Pita Bread',           vi: 'Vỏ bánh Pitas thủ công',     ru: 'Питный хлеб' },
-    { g: 4, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối chua',       ru: 'Домашние соленья' },
+    { g: 4, price: 90000,  en: 'Napoleon Cake',                  vi: 'Bánh kem xếp tầng kiểu Nga', ru: 'Наполеон' },
+    { g: 4, price: 500000, en: 'Full Napoleon Cake',            vi: 'Bánh Napoleon nguyên cái',   ru: 'Наполеон целый' },
 
-    { g: 5, price: 45000,  en: 'Hand-made Sour Cream',           vi: 'Sốt chua',                   ru: 'Сметана' },
-    { g: 5, price: 40000,  en: 'Hand-made Mayonnaise',           vi: 'Sốt mayonnaise',             ru: 'Майонез' },
-    { g: 5, price: 50000,  en: 'Honey Mustard Sauce',            vi: 'Sốt mật ong mù tạng',       ru: 'Медово-горчичный соус' },
-    { g: 5, price: 55000,  en: 'Creamy Tzatziki Sauce',          vi: 'Sốt tzatziki',              ru: 'Соус цатцики' },
-    { g: 5, price: 55000,  en: 'Hand-made Berry Sauce',          vi: 'Sốt quả mọng',              ru: 'Ягодный соус' },
-    { g: 5, price: 40000,  en: 'Hand-made Pesto Sauce',          vi: 'Sốt pesto',                 ru: 'Соус песто' },
+    { g: 5, price: 25000,  en: 'Hand Made Pita Bread',           vi: 'Vỏ bánh Pitas thủ công',     ru: 'Питный хлеб' },
+    { g: 5, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối chua',       ru: 'Домашние соленья' },
 
-    { g: 6, price: 25000,  en: 'Russian Apple Tea',              vi: 'Nước đun táo giãi nhiệt',    ru: 'Русский яблочный чай' },
-    { g: 6, price: 25000,  en: 'Kvas',                           vi: 'Nước lúa mạch lên men',     ru: 'Квас' },
-    { g: 6, price: 55000,  en: 'Berry Milk-shakes',              vi: 'Sữa lắc trái cây',          ru: 'Ягодный молочный коктейль' },
-    { g: 6, price: 50000,  en: 'Vanilla Milk-shakes',            vi: 'Kem sữa đánh vanilla',      ru: 'Ванильный молочный коктейль' },
-    { g: 6, price: 55000,  en: 'Oreo Milk-shakes',               vi: 'Sữa lắc Oreo',              ru: 'Молочный коктейль Oreo' },
-    { g: 6, price: 15000,  en: 'Coca Zero',                      vi: 'Coca Zero',                  ru: 'Coca Zero' },
-    { g: 6, price: 15000,  en: 'Aquafina Soda',                  vi: 'Aquafina',                   ru: 'Aquafina' }
+    { g: 6, price: 50000,  en: 'Hand-made Sour Cream',           vi: 'Sốt chua',                   ru: 'Сметана' },
+    { g: 6, price: 45000,  en: 'Hand-made Mayonnaise',           vi: 'Sốt mayonnaise',             ru: 'Майонез' },
+    { g: 6, price: 55000,  en: 'Honey Mustard Sauce',            vi: 'Sốt mật ong mù tạng',       ru: 'Медово-горчичный соус' },
+    { g: 6, price: 60000,  en: 'Creamy Tzatziki Sauce',          vi: 'Sốt tzatziki',              ru: 'Соус цатцики' },
+    { g: 6, price: 60000,  en: 'Hand-made Berry Sauce',          vi: 'Sốt quả mọng',              ru: 'Ягодный соус' },
+    { g: 6, price: 45000,  en: 'Hand-made Pesto Sauce',          vi: 'Sốt pesto',                 ru: 'Соус песто' },
+
+    { g: 7, price: 30000,  en: 'Russian Apple Tea',              vi: 'Nước đun táo giải nhiệt',    ru: 'Русский яблочный чай' },
+    { g: 7, price: 25000,  en: 'Kvas',                           vi: 'Nước lúa mạch lên men',     ru: 'Квас' },
+    { g: 7, price: 55000,  en: 'Berry Milk-shakes',              vi: 'Sữa Lắc Trái Mọng',          ru: 'Ягодный молочный коктейль' },
+    { g: 7, price: 50000,  en: 'Vanilla Milk-shakes',            vi: 'Kem Sữa Đánh Vanilla',      ru: 'Ванильный молочный коктейль' },
+    { g: 7, price: 55000,  en: 'Oreo Milk-shakes',               vi: 'Sữa Lắc Oreo',              ru: 'Молочный коктейль Oreo' },
+    { g: 7, price: 15000,  en: 'Coca Zero',                      vi: 'COCA KHÔNG ĐƯỜNG', ru: 'Coca Zero' },
+    { g: 7, price: 15000,  en: 'Aquafina Soda',                  vi: 'Nước khoáng có gas', ru: 'Aquafina' },
+    { g: 7, price: 0,      en: 'Regular Water',                  vi: 'Nước lọc',                   ru: 'Обычная вода' }
   ];
 
   var GROUPS = [
     { en: 'Pitas',           vi: 'Bánh mì pita',  ru: 'Питы' },
         { en: 'Pies',            vi: 'Bánh nướng',    ru: 'Пироги' },
+    { en: 'Hot food',        vi: 'Món nóng',      ru: 'Горячее' },
     { en: 'Sweet',           vi: 'Bánh ngọt',     ru: 'Сладкое' },
     { en: 'Bread and pickles', vi: 'Vỏ bánh và dưa muối', ru: 'Тесто и соленья' },
     { en: 'Hand-made sauces', vi: 'Sốt làm tại quán', ru: 'Соусы' },
@@ -324,8 +335,15 @@
 
   var MAX_QTY = 99;
 
-  /* 85.000đ — the way the board prints it, not 85,000. */
-  function vnd(n) {
+  /* 85.000đ — the way the board prints it, not 85,000.
+
+     A price of zero is the one case that is not a number: the board prints
+     still water as FREE, and a line that says 0đ reads like a mistake. So a
+     zero price is written out, in the language of the page. The strings
+     table is passed in where the text is not for the page — the shop's own
+     order thread is English whatever the customer is browsing in. */
+  function vnd(n, t) {
+    if (!n) return (t || T()).free;
     var s = String(Math.round(n));
     var out = '';
     for (var i = 0; i < s.length; i++) {
@@ -448,7 +466,7 @@
 
           var price = document.createElement('span');
           price.className = 'pvar__price num';
-          price.textContent = vnd(priceOf(ix, si));
+          price.textContent = vnd(priceOf(ix, si), t);
 
           var qty = document.createElement('div');
           qty.className = 'oqty';
@@ -728,7 +746,7 @@
 
         var sum_ = document.createElement('span');
         sum_.className = 'oline__sum num';
-        sum_.textContent = vnd(priceOf(i, s) * cart[key]);
+        sum_.textContent = vnd(priceOf(i, s) * cart[key], t);
 
         li.appendChild(label);
         li.appendChild(step);
@@ -739,7 +757,7 @@
 
     if (sum) sum.hidden = !any;
     var total = document.getElementById('orderTotal');
-    if (total) total.textContent = vnd(cartTotal());
+    if (total) total.textContent = vnd(cartTotal(), t);
     var count = document.getElementById('orderCount');
     if (count) count.textContent = t.items(cartCount());
   }
@@ -760,9 +778,9 @@
       var it = ITEMS[i];
       var nm = (lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en);
       lines.push(cart[key] + ' × ' + nm + (it.sizes ? ' · ' + t.size[s] : '') +
-        ' — ' + vnd(priceOf(i, s) * cart[key]));
+        ' — ' + vnd(priceOf(i, s) * cart[key], t));
     }
-    lines.push(t.total + ': ' + vnd(cartTotal()));
+    lines.push(t.total + ': ' + vnd(cartTotal(), t));
     var n = shopNow();
     lines.push(T().pickup + ' ' + hhmm(n.mins) + ' · ' + SHOP_PHONE);
     return lines.join('\n');
@@ -786,7 +804,7 @@
       var it = ITEMS[i];
       var nm = (lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en);
       out.push(cart[key] + ' × ' + nm + (it.sizes ? ' · ' + t.size[s] : '') +
-        ' — ' + vnd(priceOf(i, s) * cart[key]));
+        ' — ' + vnd(priceOf(i, s) * cart[key], t));
     }
     return out;
   }
@@ -858,7 +876,7 @@
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         lines: lines,
-        total: vnd(cartTotal()),
+        total: vnd(cartTotal(), STRINGS.en),
         amount: cartTotal(),
         pickup: STRINGS.en.pickup + ' ' + hhmm(shopNow().mins),
         customer: who,
@@ -1084,14 +1102,19 @@
     'Aquafina Soda': 'aquafina_soda',
     'Napoleon Cake': 'napoleon_cake',
     'Full Napoleon Cake': 'napoleon_cake',
-    'Beetroot Smoothie': 'beetroot_smoothie'
+    'Beetroot Smoothie': 'beetroot_smoothie',
+    'Adjarian Style Khachapuri': 'adjarian_khachapuri',
+    'Pelmeni (Mixed Meat Dumpling)': 'pelmeni',
+    'Vareniki (Potato Dumpling)': 'vareniki_potato',
+    'Cherry Vareniki': 'cherry_vareniki',
+    'Regular Water': 'regular_water'
       };
 
       /* Bump this when the photos change. The images are served by Cloudflare
          with long-lived cache, so a replaced .webp under the same name would
          otherwise keep serving the old picture to repeat visitors and the
          friend. Appending a version forces the browser to fetch the new file. */
-      var GALLERY_VER = 'v5';
+      var GALLERY_VER = 'v6';
 
   function wireGallery() {
     var box = document.getElementById('lightbox');
