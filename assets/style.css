@@ -382,10 +382,6 @@ html[data-lang="ru"] .day__shifts li{ letter-spacing:.01em; text-transform:none;
 }
 .grp__list .row:last-child{ border-bottom:0; }
 .row__name{ font-size:.95rem; font-weight:800; letter-spacing:-.018em; }
-.row__ticket{
-  margin-top:.1rem;
-  font-size:.76rem; font-weight:500; color:rgba(58,52,46,.9);
-}
 .row__price{
   justify-self:end; white-space:nowrap;
   font-size:.95rem;

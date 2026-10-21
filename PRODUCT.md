@@ -2,6 +2,12 @@
 
 <!-- impeccable:product-schema 1 -->
 
+> **Revision 6 — 2026-10-21.** At the owner's instruction the dish
+> descriptions are removed completely — the board reads name + price only —
+> and three Russian names are the owner's own wording: **Пита**,
+> **Малосольные огурцы**, **Яблочный компот**. The page copy no longer claims
+> "roast meats sold by the 100 gram": the 100 g cuts are not on the menu.
+>
 > **Revision 5 — 2026-10-21.** Three changes at the owner's instruction:
 > **Regular Water is removed** (the free still water is no longer offered, its
 > photo files are deleted with it), **the menu board's dish names now follow
@@ -175,8 +181,8 @@ Mixed Smoothie are gone from the new board, so nothing is excluded any more.
 
 | # | English | Русский | Tiếng Việt | Price |
 |---|---|---|---|
-| 17 | Hand Made Pita Bread | Хлеб для питы | Vỏ bánh Pitas thủ công | 25.000 / piece |
-| 18 | Home-made Pickle Cucumber | Домашние соленья | Dưa chuột muối chua | 50.000 / 100 gr |
+| 17 | Hand Made Pita Bread | Пита | Vỏ bánh Pitas thủ công | 25.000 / piece |
+| 18 | Home-made Pickle Cucumber | Малосольные огурцы | Dưa chuột muối chua | 50.000 / 100 gr |
 
 **Hand-made sauces — per 100 ml**
 
@@ -193,7 +199,7 @@ Mixed Smoothie are gone from the new board, so nothing is excluded any more.
 
 | # | English | Русский | Tiếng Việt | Price |
 |---|---|---|---|
-| 25 | Russian Apple Tea | Русский яблочный чай | Nước đun táo giải nhiệt | 30.000 |
+| 25 | Russian Apple Tea | Яблочный компот | Nước đun táo giải nhiệt | 30.000 |
 | 26 | Kvas | Квас | Nước lúa mạch lên men | 25.000 |
 | 27 | Berry Milk-shakes | Ягодный молочный коктейль | Sữa Lắc Trái Mọng | 55.000 |
 | 28 | Vanilla Milk-shakes | Ванильный молочный коктейль | Kem Sữa Đánh Vanilla | 50.000 |

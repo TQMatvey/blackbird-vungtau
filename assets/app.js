@@ -306,8 +306,8 @@
     { g: 4, price: 90000,  en: 'Napoleon Cake',                  vi: 'Bánh kem xếp tầng kiểu Nga', ru: 'Наполеон' },
     { g: 4, price: 500000, en: 'Full Napoleon Cake',            vi: 'Bánh Napoleon nguyên cái',   ru: 'Наполеон целый' },
 
-    { g: 5, price: 25000,  en: 'Hand Made Pita Bread',           vi: 'Vỏ bánh Pitas thủ công',     ru: 'Хлеб для питы' },
-    { g: 5, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối chua',       ru: 'Домашние соленья' },
+    { g: 5, price: 25000,  en: 'Hand Made Pita Bread',           vi: 'Vỏ bánh Pitas thủ công',     ru: 'Пита' },
+    { g: 5, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối chua',       ru: 'Малосольные огурцы' },
 
     { g: 6, price: 50000,  en: 'Hand-made Sour Cream',           vi: 'Kem chua',                   ru: 'Сметана' },
     { g: 6, price: 45000,  en: 'Hand-made Mayonnaise',           vi: 'Sốt mayonnaise',             ru: 'Майонез' },
@@ -316,7 +316,7 @@
     { g: 6, price: 60000,  en: 'Hand-made Berry Sauce',          vi: 'Sốt quả mọng',              ru: 'Ягодный соус' },
     { g: 6, price: 45000,  en: 'Hand-made Pesto Sauce',          vi: 'Sốt pesto',                 ru: 'Соус песто' },
 
-    { g: 7, price: 30000,  en: 'Russian Apple Tea',              vi: 'Nước đun táo giải nhiệt',    ru: 'Русский яблочный чай' },
+    { g: 7, price: 30000,  en: 'Russian Apple Tea',              vi: 'Nước đun táo giải nhiệt',    ru: 'Яблочный компот' },
     { g: 7, price: 25000,  en: 'Kvas',                           vi: 'Nước lúa mạch lên men',     ru: 'Квас' },
     { g: 7, price: 55000,  en: 'Berry Milk-shakes',              vi: 'Sữa Lắc Trái Mọng',          ru: 'Ягодный молочный коктейль' },
     { g: 7, price: 50000,  en: 'Vanilla Milk-shakes',            vi: 'Kem Sữa Đánh Vanilla',      ru: 'Ванильный молочный коктейль' },
