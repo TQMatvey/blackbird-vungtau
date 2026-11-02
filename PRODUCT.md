@@ -1,3 +1,5 @@
+> **Current implementation note (2026-11-01):** This document contains historical descriptions that may be superseded. The room and amenities section was removed at the owner’s request. The site currently displays menu photographs and sends orders through a Worker; a bank-transfer QR may appear if configured. Verify photograph provenance, amenities, payment configuration, and other open business facts with the owner. See README and source for operational details.
+
 # Product
 
 <!-- impeccable:product-schema 1 -->

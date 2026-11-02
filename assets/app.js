@@ -89,11 +89,11 @@
       open: 'Đang mở cửa', until: 'đến', opensAt: 'Mở cửa lúc', closed: 'Đã đóng cửa', today: 'hôm nay', tomorrow: 'ngày mai',
       total: 'Tổng',
       photoOf: 'Ảnh của ',
-      copied: 'Đã chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
-      sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã chép',
-      notSentNoCopy: 'Chưa gửi, và không chép được — xin gọi',
+      copied: 'Đã sao chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
+      sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã sao chép',
+      notSentNoCopy: 'Chưa gửi và không sao chép được — vui lòng gọi cho quán',
 
-      notCopied: 'Không chép được',
+      notCopied: 'Không sao chép được',
       badPhone: 'Nhập số điện thoại, ví dụ 091 234 56 78',
       nameNeeded: 'Xin điền tên và số điện thoại',
       jump: 'mở món này trong đơn của bạn',
@@ -243,8 +243,12 @@
 
       if (el.tagName === 'META') el.setAttribute('content', want);
       else if (el.hasAttribute('alt')) el.setAttribute('alt', want);
+      else if (el.querySelector('.row__jump')) el.querySelector('.row__jump').textContent = want;
       else el.textContent = want;
     }
+
+    var menuNav = document.querySelector('.menu__nav');
+    if (menuNav) menuNav.setAttribute('aria-label', menuNav.getAttribute('data-' + lang + '-aria'));
 
     // the toggle
     var btns = document.querySelectorAll('[data-setlang]');
@@ -285,44 +289,44 @@
      --------------------------------------------------------- */
   var ITEMS = [
     // pitas: two sizes, and the size changes the price
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Salted Salmon Pita',       vi: 'Bánh cá hồi muối tươi lạnh', ru: 'Пита с солёным лососем' },
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Grilled Pork Pita',        vi: 'Bánh thịt heo nướng thơm',   ru: 'Пита с жареной свининой' },
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Roast Beef Pita',          vi: 'Bánh thịt bò nướng mọng',    ru: 'Пита с жареной говядиной' },
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Camembert Cheese Pita',    vi: 'Bánh Camembert Cheese Ý',   ru: 'Пита с камамбером' },
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Grilled Chicken Pita',     vi: 'Bánh thịt gà nướng thơm',    ru: 'Пита с жареной курицей' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Salted Salmon Pita',       vi: 'Bánh pita cá hồi muối', ru: 'Пита с солёным лососем' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Grilled Pork Pita',        vi: 'Bánh pita thịt heo nướng',   ru: 'Пита с жареной свининой' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Roast Beef Pita',          vi: 'Bánh pita thịt bò nướng',    ru: 'Пита с жареной говядиной' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Camembert Cheese Pita',    vi: 'Bánh pita phô mai Camembert',   ru: 'Пита с камамбером' },
+    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Grilled Chicken Pita',     vi: 'Bánh pita thịt gà nướng',    ru: 'Пита с жареной курицей' },
 
     { g: 2, price: 180000, en: 'Berries Pie',                    vi: 'Bánh nướng quả mọng',       ru: 'Пирог с ягодами' },
     { g: 2, price: 180000, en: 'Apples Pie',                     vi: 'Bánh nướng táo',             ru: 'Пирог с яблоками' },
     { g: 2, price: 180000, en: 'Peaches Pie',                    vi: 'Bánh nướng đào',             ru: 'Пирог с персиками' },
-    { g: 2, price: 180000, en: 'Cheeses & Green Mixed Pie',      vi: 'Bánh nướng phô mai và rau mix',  ru: 'Пирог с сыром и зеленью' },
-    { g: 2, price: 180000, en: 'Mushrooms Mixed Pie',            vi: 'Bánh nướng nấm mix',            ru: 'Пирог с грибами' },
+    { g: 2, price: 180000, en: 'Cheeses & Green Mixed Pie',      vi: 'Bánh nướng phô mai và rau thơm',  ru: 'Пирог с сыром и зеленью' },
+    { g: 2, price: 180000, en: 'Mushrooms Mixed Pie',            vi: 'Bánh nướng nhân nấm',            ru: 'Пирог с грибами' },
 
     // hot food, off the same board as the pies
-    { g: 3, price: 320000, sizes: [320000, 180000], en: 'Adjarian Style Khachapuri', vi: 'Bánh Adjarian', ru: 'Аджарский хачапури' },
-    { g: 3, price: 90000,  en: 'Pelmeni (Mixed Meat Dumpling)', vi: 'Bánh hấp thịt kiểu Nga',   ru: 'Пельмени с мясом' },
-    { g: 3, price: 80000,  en: 'Vareniki (Potato Dumpling)',    vi: 'Bánh hấp khoai tây kiểu Nga', ru: 'Вареники с картофелем' },
-    { g: 3, price: 160000, en: 'Cherry Vareniki',               vi: 'Bánh hấp cherry kiểu Nga',   ru: 'Вареники с вишней' },
+    { g: 3, price: 320000, sizes: [320000, 180000], en: 'Adjarian Style Khachapuri', vi: 'Bánh khachapuri kiểu Adjara', ru: 'Аджарский хачапури' },
+    { g: 3, price: 90000,  en: 'Pelmeni (Mixed Meat Dumpling)', vi: 'Bánh pelmeni nhân thịt',   ru: 'Пельмени с мясом' },
+    { g: 3, price: 80000,  en: 'Vareniki (Potato Dumpling)',    vi: 'Bánh vareniki nhân khoai tây', ru: 'Вареники с картофелем' },
+    { g: 3, price: 160000, en: 'Cherry Vareniki',               vi: 'Bánh vareniki nhân anh đào',   ru: 'Вареники с вишней' },
 
-    { g: 4, price: 90000,  en: 'Napoleon Cake',                  vi: 'Bánh kem xếp tầng kiểu Nga', ru: 'Наполеон' },
-    { g: 4, price: 500000, en: 'Full Napoleon Cake',            vi: 'Bánh Napoleon nguyên cái',   ru: 'Наполеон целый' },
+    { g: 4, price: 90000,  en: 'Napoleon Cake',                  vi: 'Bánh Napoleon', ru: 'Наполеон' },
+    { g: 4, price: 560000, en: 'Full Napoleon Cake',            vi: 'Bánh Napoleon nguyên cái',   ru: 'Наполеон целый' },
 
-    { g: 5, price: 25000,  en: 'Hand Made Pita Bread',           vi: 'Vỏ bánh Pitas thủ công',     ru: 'Пита' },
-    { g: 5, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối chua',       ru: 'Малосольные огурцы' },
+    { g: 5, price: 25000,  en: 'Hand Made Pita Bread',           vi: 'Bánh mì pita làm thủ công',     ru: 'Пита' },
+    { g: 5, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối',       ru: 'Малосольные огурцы' },
 
     { g: 6, price: 50000,  en: 'Hand-made Sour Cream',           vi: 'Kem chua',                   ru: 'Сметана' },
     { g: 6, price: 45000,  en: 'Hand-made Mayonnaise',           vi: 'Sốt mayonnaise',             ru: 'Майонез' },
-    { g: 6, price: 55000,  en: 'Honey Mustard Sauce',            vi: 'Sốt mật ong mù tạng',       ru: 'Медово-горчичный соус' },
+    { g: 6, price: 55000,  en: 'Honey Mustard Sauce',            vi: 'Sốt mật ong mù tạt',       ru: 'Медово-горчичный соус' },
     { g: 6, price: 60000,  en: 'Creamy Tzatziki Sauce',          vi: 'Sốt tzatziki',              ru: 'Соус цатцики' },
     { g: 6, price: 60000,  en: 'Hand-made Berry Sauce',          vi: 'Sốt quả mọng',              ru: 'Ягодный соус' },
     { g: 6, price: 45000,  en: 'Hand-made Pesto Sauce',          vi: 'Sốt pesto',                 ru: 'Соус песто' },
 
-    { g: 7, price: 30000,  en: 'Russian Apple Tea',              vi: 'Nước đun táo giải nhiệt',    ru: 'Яблочный компот' },
-    { g: 7, price: 25000,  en: 'Kvas',                           vi: 'Nước lúa mạch lên men',     ru: 'Квас' },
-    { g: 7, price: 55000,  en: 'Berry Milk-shakes',              vi: 'Sữa Lắc Trái Mọng',          ru: 'Ягодный молочный коктейль' },
-    { g: 7, price: 50000,  en: 'Vanilla Milk-shakes',            vi: 'Kem Sữa Đánh Vanilla',      ru: 'Ванильный молочный коктейль' },
-    { g: 7, price: 55000,  en: 'Oreo Milk-shakes',               vi: 'Sữa Lắc Oreo',              ru: 'Молочный коктейль Oreo' },
-    { g: 7, price: 15000,  en: 'Coca Zero',                      vi: 'COCA KHÔNG ĐƯỜNG', ru: 'Coca Zero' },
-    { g: 7, price: 15000,  en: 'Aquafina Soda',                  vi: 'Nước khoáng có gas', ru: 'Aquafina' }
+    { g: 7, price: 30000,  en: 'Russian Apple Tea',              vi: 'Nước táo kiểu Nga',    ru: 'Яблочный компот' },
+    { g: 7, price: 25000,  en: 'Kvas',                           vi: 'Nước kvass',     ru: 'Квас' },
+    { g: 7, price: 55000,  en: 'Berry Milk-shakes',              vi: 'Sữa lắc quả mọng',          ru: 'Ягодный молочный коктейль' },
+    { g: 7, price: 50000,  en: 'Vanilla Milk-shakes',            vi: 'Sữa lắc vani',      ru: 'Ванильный молочный коктейль' },
+    { g: 7, price: 55000,  en: 'Oreo Milk-shakes',               vi: 'Sữa lắc Oreo',              ru: 'Молочный коктейль Oreo' },
+    { g: 7, price: 15000,  en: 'Coca Zero',                      vi: 'Coca Zero', ru: 'Coca Zero' },
+    { g: 7, price: 15000,  en: 'Aquafina Soda',                  vi: 'Nước soda Aquafina', ru: 'Aquafina' }
   ];
 
   var GROUPS = [
@@ -330,7 +334,7 @@
         { en: 'Pies',            vi: 'Bánh nướng',    ru: 'Пироги' },
     { en: 'Hot food',        vi: 'Món nóng',      ru: 'Горячее' },
     { en: 'Sweet',           vi: 'Bánh ngọt',     ru: 'Сладкое' },
-    { en: 'Bread and pickles', vi: 'Vỏ bánh và dưa muối', ru: 'Тесто и соленья' },
+    { en: 'Bread and pickles', vi: 'Bánh mì và dưa muối', ru: 'Тесто и соленья' },
     { en: 'Hand-made sauces', vi: 'Sốt làm tại quán', ru: 'Соусы' },
     { en: 'Drinks',          vi: 'Đồ uống',       ru: 'Напитки' }
   ];
@@ -548,8 +552,8 @@
 
       var minus = el.querySelector('.oqty__b[data-act="minus"]');
       var plus = el.querySelector('.oqty__b[data-act="plus"]');
-      if (minus) minus.setAttribute('aria-label', t.less + ' ' + nm);
-      if (plus) plus.setAttribute('aria-label', t.more + ' ' + nm);
+      if (minus) minus.setAttribute('aria-label', t.less + ' ' + nm + (it.sizes ? ' ' + t.size[parseInt(el.dataset.s, 10)] : ''));
+      if (plus) plus.setAttribute('aria-label', t.more + ' ' + nm + (it.sizes ? ' ' + t.size[parseInt(el.dataset.s, 10)] : ''));
     }
   }
 
@@ -607,19 +611,18 @@
       var el = rows[i].el;
       el.className += ' row--jump';
       el.setAttribute('data-jump', String(ix));
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
+      var name = el.querySelector('.row__name');
+      var jump = document.createElement('button');
+      jump.type = 'button';
+      jump.className = 'row__jump';
+      while (name.firstChild) jump.appendChild(name.firstChild);
+      name.appendChild(jump);
       linked++;
     }
 
     // one listener for the whole board, rather than 31 of them
     board.addEventListener('click', onJumpActivate);
-    board.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-        if (!onJumpActivate(e)) return;
-        e.preventDefault();                    // Space must not scroll
-      }
-    });
+
 
     relabelMenuJump();
     if (window.console) {
@@ -686,7 +689,8 @@
     for (var i = 0; i < rows.length; i++) {
       var nm = rows[i].querySelector('.row__name');
       if (!nm) continue;
-      rows[i].setAttribute('aria-label', nm.textContent.trim() + ' — ' + t.jump);
+      var jump = rows[i].querySelector('.row__jump');
+      if (jump) jump.setAttribute('aria-label', nm.textContent.trim() + ' — ' + t.jump);
       // the photo button inside the row is labelled in the same language
       var thumb = rows[i].querySelector('.row__thumb');
       if (thumb) thumb.setAttribute('aria-label', t.photoOf + nm.textContent.trim());
@@ -767,6 +771,12 @@
     if (total) total.textContent = vnd(cartTotal(), t);
     var count = document.getElementById('orderCount');
     if (count) count.textContent = t.items(cartCount());
+    var glance = document.getElementById('orderGlance');
+    if (glance) {
+      glance.hidden = !any;
+      document.getElementById('orderGlanceCount').textContent = t.items(cartCount());
+      document.getElementById('orderGlanceTotal').textContent = vnd(cartTotal(), t);
+    }
   }
 
   function orderText() {
@@ -788,8 +798,7 @@
         ' — ' + vnd(priceOf(i, s) * cart[key], t));
     }
     lines.push(t.total + ': ' + vnd(cartTotal(), t));
-    var n = shopNow();
-    lines.push(T().pickup + ' ' + hhmm(n.mins) + ' · ' + SHOP_PHONE);
+    lines.push(SHOP_PHONE);
     return lines.join('\n');
   }
 
@@ -853,7 +862,7 @@
   }
 
   function sendOrder(btn) {
-    if (cartCount() === 0) return;
+    if (cartCount() === 0 || btn.disabled) return;
     var who = readCustomer();
     var t = T();
     var busy = function (msg) { flash(btn, msg); };
@@ -877,7 +886,9 @@
       return;
     }
 
-    busy(t.sending);
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.textContent = t.sending;
     fetch(ORDER_API, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -885,13 +896,15 @@
         lines: lines,
         total: vnd(cartTotal(), STRINGS.en),
         amount: cartTotal(),
-        pickup: STRINGS.en.pickup + ' ' + hhmm(shopNow().mins),
         customer: who,
         customer_chat_id: null,
       })
     }).then(function (r) {
       return r.json().then(function (j) { return { ok: r.ok, j: j }; });
     }).then(function (res) {
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      btn.textContent = btn.getAttribute('data-' + (document.documentElement.getAttribute('data-lang') || 'en'));
       if (res.ok && res.j && res.j.ok) {
         busy(T().sent + ' ' + res.j.ref);
         showPay(res.j.ref, res.j.pay);
@@ -905,6 +918,9 @@
         if (window.console) console.warn('order not delivered:', err);
       }
     }).catch(function (e) {
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      btn.textContent = btn.getAttribute('data-' + (document.documentElement.getAttribute('data-lang') || 'en'));
       fallbackCopy(text, function (ok) { busy(ok ? T().notSent : T().notSentNoCopy); });
       if (window.console) console.warn('order request failed:', e);
     });
@@ -915,6 +931,41 @@
      from the server's reference, so nothing here retypes it. If the
      worker sent no pay block (bank not configured), this stays hidden and
      the order stands without payment, exactly as before. */
+  // VietQR publishes different app identifiers for Android and iOS. Keep a
+  // small offline fallback so a failed app-list request never blocks the QR.
+  function loadBankApps(select) {
+    var fallback = [
+      ['vcb', 'VCB Digibank'], ['mb', 'MB Bank'], ['tcb', 'Techcombank Mobile'],
+      ['bidv', 'BIDV SmartBanking'], ['icb', 'VietinBank iPay'], ['acb', 'ACB ONE'],
+      ['vpb', 'VPBank NEO'], ['tpb', 'TPBank Mobile'], ['ocb', 'OCB OMNI'],
+      ['vba', 'Agribank Plus']
+    ];
+    function populate(apps) {
+      var selected = select.value;
+      while (select.options.length > 1) select.remove(1);
+      apps.forEach(function (app) {
+        var option = document.createElement('option');
+        option.value = app[0]; option.textContent = app[1];
+        select.appendChild(option);
+      });
+      select.value = selected;
+      if (select.value !== selected && select.onchange) select.onchange();
+    }
+    populate(fallback);
+    var os = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'ios' : 'android';
+    fetch('https://api.vietqr.io/v2/' + os + '-app-deeplinks')
+      .then(function (r) { if (!r.ok) throw new Error('bank list unavailable'); return r.json(); })
+      .then(function (data) {
+        if (!data || !Array.isArray(data.apps)) return;
+        var apps = data.apps.filter(function (app) {
+          return app && typeof app.appId === 'string' && /^[a-z0-9-]+$/.test(app.appId) &&
+            typeof app.appName === 'string' && app.appName.length > 0;
+        }).map(function (app) { return [app.appId, app.appName]; });
+        if (apps.length) populate(apps);
+      }).catch(function () { /* fallback and QR remain available */ });
+  }
+
   function showPay(ref, pay) {
     var box = document.getElementById('payBox');
     if (!box) return;
@@ -924,13 +975,22 @@
     // attributes; only the values the server produced are set here.
     document.getElementById('payQr').src = pay.url;
     var open = document.getElementById('payOpen');
-    if (open) {
-      if (pay.deeplink) {
-        open.href = pay.deeplink;
-                open.hidden = false;
-      } else {
-        open.hidden = true;
-      }
+    var bank = document.getElementById('payBank');
+    if (open && bank) {
+      open.hidden = true;
+      bank.value = '';
+      bank.onchange = function () {
+        if (!bank.value) { open.hidden = true; open.removeAttribute('href'); return; }
+        // The receiving bank and the customer's app are separate choices.
+        var params = 'app=' + encodeURIComponent(bank.value) +
+          '&ba=' + encodeURIComponent(pay.account + '@' + pay.bank.toLowerCase()) +
+          '&am=' + encodeURIComponent(pay.amount) + '&tn=' + encodeURIComponent(ref) +
+          '&bn=' + encodeURIComponent(pay.accountName) +
+          '&url=' + encodeURIComponent(window.location.origin + window.location.pathname);
+        open.href = 'https://dl.vietqr.io/pay?' + params;
+        open.hidden = false;
+      };
+      loadBankApps(bank);
     }
     document.getElementById('payQr').alt = 'VietQR ' + ref;
     document.getElementById('payMemoVal').textContent = ref;
@@ -976,6 +1036,8 @@
     host.addEventListener('keydown', function (e) {
       if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
       var d = e.key === 'ArrowRight' ? 1 : -1;
+      var active = host.querySelector('.ptab[aria-selected="true"]');
+      if (active) cur = parseInt(active.dataset.g, 10);
       cur = ((cur - 1 + d + GROUPS.length) % GROUPS.length) + 1;
       showGroup(cur);
       var t = host.querySelector('.ptab[data-g="' + cur + '"]');
@@ -1155,12 +1217,12 @@
       btn.appendChild(img);
       body.insertBefore(btn, body.firstChild);
       // open the lightbox at this photo
-      (function (stem) {
+      (function (index) {
         btn.addEventListener('click', function (e) {
           e.stopPropagation();
-          openLightbox(list.indexOf(list.filter(function (x) { return x.stem === stem; })[0]));
+          openLightbox(index);
         });
-      })(stem);
+      })(list.length - 1);
     }
     // the photo buttons were just created, so they are labelled here too,
     // in whatever language the page is being read
@@ -1171,7 +1233,9 @@
     var close = box.querySelector('.lightbox__close');
     var prev = box.querySelector('.lightbox__nav--prev');
     var next = box.querySelector('.lightbox__nav--next');
+    var opener = null;
     function openLightbox(idx) {
+      if (box.hidden) opener = document.activeElement;
       window.GALLERY_IDX = idx;
       var it = list[idx];
       var img = box.querySelector('.lightbox__img');
@@ -1183,11 +1247,13 @@
         it.priceEl ? it.priceEl.textContent.replace(/\s+/g, ' ').trim() : '';
       box.hidden = false;
       document.body.style.overflow = 'hidden';
+      close.focus();
     }
     window.openLightbox = openLightbox;
     function closeLightbox() {
       box.hidden = true;
       document.body.style.overflow = '';
+      if (opener && opener.focus) opener.focus();
     }
     window.closeLightbox = closeLightbox;
     function move(dir) {
@@ -1203,6 +1269,12 @@
     next.addEventListener('click', function () { move(1); });
     document.addEventListener('keydown', function (e) {
       if (box.hidden) return;
+      if (e.key === 'Tab') {
+        var controls = [close, prev, next];
+        var at = controls.indexOf(document.activeElement);
+        if (e.shiftKey && at <= 0) { next.focus(); e.preventDefault(); }
+        else if (!e.shiftKey && (at === controls.length - 1 || at < 0)) { close.focus(); e.preventDefault(); }
+      }
       if (e.key === 'Escape') closeLightbox();
       if (e.key === 'ArrowLeft') move(-1);
       if (e.key === 'ArrowRight') move(1);

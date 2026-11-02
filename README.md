@@ -2,12 +2,12 @@
 
 The site for **Black Bird**, N4/4 Hoàng Hữu Nam, P.2, Vũng Tàu.
 
-Pitas and sandwiches, pies made to order, and roast meats sold by the 100 gram.
+Pitas and sandwiches, pies made to order, and other items on the menu.
 Open **07:30 – 20:00** daily. Call **038 226 4034**.
 
 ## Running it
 
-There is no build step. Open `index.html` in a browser, or serve the folder:
+For local development, open `index.html` in a browser, or serve the folder:
 
 ```
 npx serve .
@@ -56,7 +56,7 @@ read them. This is a static frontend: every byte shipped is downloadable.
 | `index.html` | the whole site — markup, all three languages, all copy |
 | `assets/style.css` | the design system |
 | `assets/app.js` | the Vũng Tàu clock, the EN/VI/RU switch, the order builder |
-| `assets/img/` | the two logo files the page actually loads |
+| `assets/img/` | logos and menu photographs |
 | `DESIGN.md` | the design record: why it looks like this |
 | `PRODUCT.md` | the verified facts, what is still unconfirmed, and what the owner must change |
 | `restaurant_assets/` | the source material: the menu boards, the shop's own photographs, and the processed versions that are parked but not yet on the page |
@@ -138,12 +138,8 @@ a broken one is worse than none.
 
 ## Two things that are not finished
 
-- **No payment.** Orders reach the shop over Telegram; nothing takes money yet.
-  VietQR is the plan, and the worker is where it goes.
-- **The photographs are parked.** The shop's own images were placed, reviewed
-  and then pulled at the owner's request. The processed files sit in
-  `restaurant_assets/processed/`; copying them back into `assets/img/` and
-  adding the `<img>` tags brings them back.
+- **Payment configuration must be verified.** The Worker can return a bank-transfer QR when configured; the VietQR integration is separate and unfinished.
+- **Photograph provenance needs confirmation.** The current page displays menu photographs from `assets/img/menu/`; older notes describe a different, removed photo set.
 
 `PRODUCT.md` has the full list, including the one question worth the owner's
 eye: the board prints the pork name against *Grilled Chicken Pita*.

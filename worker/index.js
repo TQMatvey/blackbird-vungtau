@@ -277,8 +277,7 @@ function timingSafeEqual(a, b) {
 // security token — it exists so the shop and the customer can talk about the
 // same order without a 64-character code.
 function makeRef() {
-  const n = Math.floor(1000 + Math.random() * 9000);
-  return 'BB-' + n;
+  return 'BB-' + crypto.randomUUID().slice(0, 8).toUpperCase();
 }
 
 function esc(s) {
@@ -616,8 +615,16 @@ async function handle(request, env, ctx) {
       } catch {
         return json({ ok: false, error: 'bad json' }, 400);
       }
-      const lines = Array.isArray(order.lines) ? order.lines.filter(Boolean) : [];
-      if (!lines.length) return json({ ok: false, error: 'order has no lines' }, 400);
+      const lines = Array.isArray(order.lines) ? order.lines : [];
+      const details = order.customer || {};
+      if (!lines.length || lines.length > 100 || lines.some(l => typeof l !== 'string' || !l.trim() || l.length > 300) ||
+          typeof order.total !== 'string' || order.total.length > 40 ||
+          !Number.isSafeInteger(order.amount) || order.amount <= 0 || order.amount > 100000000 ||
+          typeof details.name !== 'string' || !details.name.trim() || details.name.length > 120 ||
+          typeof details.phone !== 'string' || !details.phone.trim() || details.phone.length > 40 ||
+          (details.address != null && (typeof details.address !== 'string' || details.address.length > 300))) {
+        return json({ ok: false, error: 'invalid order' }, 400);
+      }
 
       const ref = makeRef();
 
@@ -701,7 +708,7 @@ async function handle(request, env, ctx) {
       // Someone claims an order by typing its reference. This is the
       // fallback for a phone where the button is awkward, and it also works
       // when the message is forwarded rather than tapped.
-      const typed = /^BB-\d{4}$/i.exec(text);
+      const typed = /^BB-(?:\d{4}|[A-F0-9]{8})$/i.exec(text);
       if (typed && msg.chat.type !== 'private') {
         const who = [msg.from && msg.from.first_name, msg.from && msg.from.last_name]
           .filter(Boolean).join(' ') || (msg.from ? 'id' + msg.from.id : 'someone');
