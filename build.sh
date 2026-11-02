@@ -54,6 +54,9 @@ sed -i \
   -e "s|\(href=\"assets/img/logo-crimson\.jpg\)\"|\1?v=$CRIMSON_V\"|" \
   dist/index.html
 
+CATALOG_V=$(fingerprint assets/catalog.js)
+sed -i -e "s|src=\"assets/catalog.js\"|src=\"assets/catalog.js?v=$CATALOG_V\"|" dist/index.html
+
 echo "stamped: app.js?v=$APP_V style.css?v=$CSS_V logo.jpg?v=$LOGO_V logo-crimson.jpg?v=$CRIMSON_V"
 
 # Cloudflare Pages reads this for cache headers; it sits at the root of

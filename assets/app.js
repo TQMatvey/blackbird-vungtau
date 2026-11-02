@@ -1,1013 +1,591 @@
-/* ============================================================
-   Black Bird — behaviour.
-   Three jobs, no framework:
-   1. the day-strip, which is both the shop's real open state
-      and the page's scroll position;
-   2. the VI/EN switch, which reads both strings out of the
-      markup so the owner can edit either one in place;
-    3. the order: quantities against the real items, a running total,
-       and Send order, which writes the order out and hands it to
-       Telegram ready to send.
-   ============================================================ */
 (function () {
-  'use strict';
-
-  /* -- the shop's hours, as published -----------------------------
-     Foody said 21:35, ShopeeFood said 21:00, Google said 21:30. The
-     owner has now settled it: the shop closes at 8 PM. That is the
-     page's value, and it came from the owner rather than a listing. */
-  var OPEN_MIN = 7 * 60 + 30;   // 07:30
-  var CLOSE_MIN = 20 * 60;      // 20:00
-  var TZ = 'Asia/Ho_Chi_Minh';
-
-  /* -- where orders go ---------------------------------------------
-     Send order POSTs the order to the bot's Worker, which holds the
-     Telegram token server-side and forwards it to the shop. The token is
-     never in this file — it is a Worker secret, because every byte served
-     from this page is downloadable and a bot token in client-side
-     JavaScript is a public key to the bot.
-
-     If the Worker is unreachable the button must not pretend the order
-     arrived, so it falls back to copying the order, which at least leaves
-     the customer with something. */
-  var ORDER_API = 'https://blackbird-bot.maybeetube.workers.dev/order';
-  var SHOP_PHONE = '038 226 4034';
-
-  /* Vũng Tàu time, whatever time zone the visitor's phone is in.
-     Formatting through Intl with an explicit zone does the maths. */
-  function shopNow() {
-    var d = new Date();
-    var parts;
-    try {
-      parts = new Intl.DateTimeFormat('en-GB', {
-        timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false
-      }).formatToParts(d);
-    } catch (e) {
-      parts = null; // no Intl zone support: fall back to the device clock
-    }
-    var hh, mm;
-    if (parts) {
-      hh = parseInt(parts.filter(function (p) { return p.type === 'hour'; })[0].value, 10);
-      mm = parseInt(parts.filter(function (p) { return p.type === 'minute'; })[0].value, 10);
-    } else {
-      hh = d.getHours();
-      mm = d.getMinutes();
-    }
-    return { mins: hh * 60 + mm, hh: hh, mm: mm };
-  }
-
-  function hhmm(mins) {
-    var h = Math.floor(mins / 60), m = mins % 60;
-    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
-  }
-
-  /* Three languages, in the order the owner asked for them.
-     English is the default: the name, the tagline and the whole
-     printed menu board are in English, and the terrace regulars are
-     mostly not Vietnamese speakers. */
-  var LANGS = ['en', 'vi', 'ru'];
-  var DEFAULT_LANG = 'en';
-
-  var STRINGS = {
+  "use strict";
+  var lang = "en",
+    cart = {},
+    busy = false,
+    sentRef = null;
+  try {
+    var saved = localStorage.getItem("bb-lang");
+    if (["en", "vi", "ru"].indexOf(saved) >= 0) lang = saved;
+  } catch (e) {}
+  var text = {
     en: {
-      open: 'Open now', until: 'until', opensAt: 'Opens at', closed: 'Closed', today: 'today', tomorrow: 'tomorrow',
-      total: 'Total',
-      photoOf: 'Photo of ',
-      copied: 'Copied', less: 'One fewer', more: 'One more', add: 'Add',
-      sending: 'Sending…', sent: 'Sent ·', notSent: 'Not sent — copied',
-      notSentNoCopy: 'Not sent, and the copy failed — please call',
-
-      notCopied: 'Copy failed',
-      badPhone: 'Enter a phone number, for example 091 234 56 78',
-      nameNeeded: 'Please add a name and a phone number',
-      jump: 'open this in your order',
-      pickup: 'Pickup',
-      free: 'Free',
-      size: ['Large', 'Medium'], sizeShort: ['L', 'M'],      items: function (c) { return c + (c === 1 ? ' item' : ' items') + ' in your order'; }
+      menu: "The menu",
+      yourOrder: "Your order",
+      intro:
+        "Pitas baked on the spot. Pies made to order. Come hungry, leave happy.",
+      browse: "Find your next bite",
+      daily: "daily",
+      pitas: "Salted Salmon Pita",
+      menuNote:
+        "Choose your food. Add it here. We’ll keep your order together.",
+      checkoutIntro:
+        "Everything you’ve picked, all in one place. Check your items and leave your details.",
+      preview: "Design preview — orders and payments are not sent.",
+      call: "Or call the shop ↗",
+      total: "Total",
+      name: "Your name",
+      phone: "Phone number",
+      address: "Address (optional)",
+      review: "Preview your order",
+      visit: "Find us",
+      directions: "Get directions ↗",
+      contact: "Say hello",
+      empty: "Your order is empty. Add something from the menu above.",
+      add: "Add",
+      less: "Remove one",
+      more: "Add one",
+      items: "items",
+      item: "item",
+      open: "Open now · until 20:00",
+      closed: "Closed now · opens at 07:30",
+      result:
+        "Your order is ready to review. This preview has not sent it to the shop.",
+      need: "Add an item from the menu first.",
     },
     vi: {
-      open: 'Đang mở cửa', until: 'đến', opensAt: 'Mở cửa lúc', closed: 'Đã đóng cửa', today: 'hôm nay', tomorrow: 'ngày mai',
-      total: 'Tổng',
-      photoOf: 'Ảnh của ',
-      copied: 'Đã sao chép', less: 'Bớt một', more: 'Thêm một', add: 'Thêm',
-      sending: 'Đang gửi…', sent: 'Đã gửi ·', notSent: 'Chưa gửi — đã sao chép',
-      notSentNoCopy: 'Chưa gửi và không sao chép được — vui lòng gọi cho quán',
-
-      notCopied: 'Không sao chép được',
-      badPhone: 'Nhập số điện thoại, ví dụ 091 234 56 78',
-      nameNeeded: 'Xin điền tên và số điện thoại',
-      jump: 'mở món này trong đơn của bạn',
-      pickup: 'Lấy tại quán',
-      free: 'Miễn phí',
-      size: ['Lớn', 'Vừa'], sizeShort: ['L', 'M'],
-      items: function (c) { return c + ' món trong đơn của bạn'; }
+      menu: "Thực đơn",
+      yourOrder: "Đơn của bạn",
+      intro: "Bánh pita nướng tại chỗ. Bánh nướng làm theo yêu cầu.",
+      browse: "Chọn món ngon",
+      daily: "hằng ngày",
+      pitas: "Bánh pita cá hồi muối",
+      menuNote: "Chọn món và thêm vào đơn ngay tại đây.",
+      checkoutIntro: "Xem lại các món đã chọn và điền thông tin liên hệ.",
+      preview: "Bản xem thử — không gửi đơn hoặc thanh toán.",
+      call: "Hoặc gọi cho quán ↗",
+      total: "Tổng cộng",
+      name: "Tên của bạn",
+      phone: "Số điện thoại",
+      address: "Địa chỉ (không bắt buộc)",
+      review: "Xem thử đơn hàng",
+      visit: "Ghé quán",
+      directions: "Chỉ đường ↗",
+      contact: "Liên hệ",
+      empty: "Chưa có món nào. Hãy chọn món từ thực đơn bên trên.",
+      add: "Thêm",
+      less: "Bớt một",
+      more: "Thêm một",
+      items: "món",
+      item: "món",
+      open: "Đang mở cửa · đến 20:00",
+      closed: "Đã đóng cửa · mở lúc 07:30",
+      result: "Đơn đã sẵn sàng để xem lại. Bản xem thử chưa gửi đơn đến quán.",
+      need: "Hãy thêm món từ thực đơn trước.",
     },
     ru: {
-      open: 'Открыто', until: 'до', opensAt: 'Открывается в', closed: 'Закрыто', today: 'сегодня', tomorrow: 'завтра',
-      total: 'Итого',
-      photoOf: 'Фото: ',
-      copied: 'Скопировано', less: 'На одну меньше', more: 'Добавить', add: 'Добавить',
-      sending: 'Отправка…', sent: 'Отправлено ·', notSent: 'Не отправлено — скопировано',
-      notSentNoCopy: 'Не отправлено и скопировать не вышло — позвоните',
-
-      notCopied: 'Скопировать не вышло',
-      badPhone: 'Введите номер телефона, например 091 234 56 78',
-      nameNeeded: 'Укажите имя и номер телефона',
-      jump: 'открыть это блюдо в заказе',
-      pickup: 'Самовывоз',
-      free: 'Бесплатно',
-      size: ['Большой', 'Средний'], sizeShort: ['L', 'M'],
-      // Russian takes three plural forms, not two
-      items: function (c) {
-        var n = Math.abs(c) % 100;
-        var one = n === 1;
-        var few = n >= 2 && n <= 4;
-        return c + ' ' + (one ? 'позиция' : few ? 'позиции' : 'позиций') + ' в вашем заказе';
-      }
-    }
+      menu: "Меню",
+      yourOrder: "Ваш заказ",
+      intro: "Питы пекут на месте. Пироги готовят на заказ.",
+      browse: "Выбрать блюда",
+      daily: "ежедневно",
+      pitas: "Пита с солёным лососем",
+      menuNote: "Выбирайте блюда и добавляйте их в заказ прямо здесь.",
+      checkoutIntro:
+        "Все выбранные блюда в одном месте. Проверьте заказ и оставьте контакты.",
+      preview: "Предпросмотр — заказы и платежи не отправляются.",
+      call: "Или позвоните нам ↗",
+      total: "Итого",
+      name: "Ваше имя",
+      phone: "Номер телефона",
+      address: "Адрес (необязательно)",
+      review: "Посмотреть заказ",
+      visit: "Приходите",
+      directions: "Как добраться ↗",
+      contact: "Связаться",
+      empty: "В заказе пока ничего нет. Выберите блюда в меню выше.",
+      add: "Добавить",
+      less: "Убрать одну",
+      more: "Добавить одну",
+      items: "позиций",
+      item: "позиция",
+      open: "Открыто · до 20:00",
+      closed: "Закрыто · открываемся в 07:30",
+      result:
+        "Заказ готов к просмотру. Предпросмотр не отправляет его в заведение.",
+      need: "Сначала добавьте блюда из меню.",
+    },
   };
-
-  function T() {
-    var l = document.documentElement.getAttribute('data-lang');
-    return STRINGS[LANGS.indexOf(l) > -1 ? l : DEFAULT_LANG];
+  function t(key) {
+    return text[lang][key] || text.en[key] || key;
   }
-
-  /* ---------------------------------------------------------
-     1. Day-strip: open state, now-marker, and scroll position
-     --------------------------------------------------------- */
-  function isOpenNow(n) { return n.mins >= OPEN_MIN && n.mins < CLOSE_MIN; }
-
-  function paintClock() {
-    var n = shopNow();
-    var t = T();
-    var pct = Math.max(0, Math.min(1, (n.mins - OPEN_MIN) / (CLOSE_MIN - OPEN_MIN))) * 100;
-
-    // the bar's clock: the one fact that has to be true at all times
-    var clock = document.getElementById('stripClock');
-    var clockBox = document.getElementById('clock');
-    if (clock) clock.textContent = hhmm(n.mins);
-    if (clockBox) clockBox.setAttribute('data-open', isOpenNow(n) ? 'true' : 'false');
-
-    // the day's programme. pct is 0-100 for the marker's `left`,
-    // but scaleX() takes a 0-1 factor — feeding it the percentage
-    // stretched the fill ~100x past the track.
-    var dFill = document.getElementById('dayFill');
-    var dNow = document.getElementById('dayNow');
-    if (dFill) dFill.style.transform = 'scaleX(' + (pct / 100) + ')';
-    if (dNow) dNow.style.left = pct + '%';
-
-    // the readout: one readout, one truth
-    var state = document.getElementById('state');
-    var word = document.getElementById('stateWord');
-    var until = document.getElementById('stateUntil');
-    var live = document.getElementById('stateLive');
-    if (!state || !word) return;
-
-    var isOpen = isOpenNow(n);
-    if (isOpen) {
-      state.setAttribute('data-state', 'open');
-      word.textContent = t.open;
-      until.textContent = t.until + ' ' + hhmm(CLOSE_MIN);
-    } else {
-      state.setAttribute('data-state', 'closed');
-      word.textContent = t.closed;
-      // before opening: today. after closing: TOMORROW at OPEN_MIN —
-      // it used to print CLOSE_MIN with a "(today)" tag, which told the
-      // visitor the shop opens at 20:00, every evening between 20:00
-      // and midnight. A wrong fact is worse than a missing one.
-      var afterClose = n.mins >= CLOSE_MIN;
-      until.textContent = t.opensAt + ' ' + hhmm(OPEN_MIN) + (afterClose ? ' (' + t.tomorrow + ')' : '');
+  function money(n) {
+    return n.toLocaleString("vi-VN") + "₫";
+  }
+  function node(tag, cls, content) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (content != null) e.textContent = content;
+    return e;
+  }
+  function price(i, s) {
+    return ITEMS[i].sizes ? ITEMS[i].sizes[s] : ITEMS[i].price;
+  }
+  function count() {
+    return Object.keys(cart).reduce(function (n, k) {
+      return n + cart[k];
+    }, 0);
+  }
+  function total() {
+    return Object.keys(cart).reduce(function (n, k) {
+      var p = k.split(":");
+      return n + price(+p[0], +p[1]) * cart[k];
+    }, 0);
+  }
+  function step(i, s) {
+    var key = i + ":" + s,
+      q = cart[key] || 0,
+      wrap = node("div", "step" + (q ? " selected" : ""));
+    function button(label, delta, cls) {
+      var b = node("button", cls, label);
+      b.type = "button";
+      b.setAttribute(
+        "aria-label",
+        (delta > 0 ? t("more") : t("less")) +
+          " " +
+          ITEMS[i][lang] +
+          (ITEMS[i].sizes ? " " + ["L", "M"][s] : ""),
+      );
+      b.onclick = function () {
+        if (busy) return;
+        sentRef = null;
+        document.getElementById("payBox").hidden = true;
+        document.getElementById("status").textContent = "";
+        var inReceipt = !!b.closest(".cart-line");
+        var active = document.activeElement;
+        cart[key] = Math.max(0, Math.min(99, (cart[key] || 0) + delta));
+        if (!cart[key]) delete cart[key];
+        render();
+        var target = document.querySelector(
+          (inReceipt ? "#cartLines " : "#catalog ") +
+            '[data-step="' +
+            key +
+            '"] button:last-child',
+        );
+        if (target && active) target.focus({ preventScroll: true });
+      };
+      return b;
     }
-    if (live) {
-      live.textContent = isOpen
-        ? t.open + ', ' + t.until + ' ' + hhmm(CLOSE_MIN)
-        : t.closed + ', ' + until.textContent;
-    }
+    wrap.setAttribute("data-step", key);
+    if (q) {
+      wrap.appendChild(button("−", -1));
+      wrap.appendChild(node("output", "", q));
+      wrap.appendChild(button("+", 1));
+    } else wrap.appendChild(button(t("add"), 1, "add"));
+    return wrap;
   }
-
-  /* The bar's own hairline is the page's scroll position: the
-     day-strip and the progress bar are one line doing two jobs. */
-  function paintProgress() {
-    var h = document.documentElement.scrollHeight - window.innerHeight;
-    var p = h > 0 ? Math.min(1, window.scrollY / h) : 0;
-    var bar = document.getElementById('prog');
-    if (bar) bar.style.transform = 'scaleX(' + p + ')';
-  }
-
-  function paintDock() {
-    var dock = document.getElementById('dock');
-    if (!dock) return;
-    var y = window.scrollY;
-    var show = y > 520 || y + window.innerHeight > document.documentElement.scrollHeight - 120;
-    if (window.innerWidth <= 760 && show) dock.setAttribute('data-show', '');
-    else dock.removeAttribute('data-show');
-  }
-
-  var ticking = false;
-  function onScroll() {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(function () {
-      paintProgress();
-      paintDock();
-      ticking = false;
+  function render() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-en]").forEach(function (el) {
+      el.textContent =
+        el.getAttribute("data-" + lang) || el.getAttribute("data-en");
     });
-  }
-
-  /* ---------------------------------------------------------
-     2. EN / VI / RU — all three strings live in the markup
-     --------------------------------------------------------- */
-  function applyLang(lang) {
-    if (LANGS.indexOf(lang) === -1) lang = DEFAULT_LANG;
-    var root = document.documentElement;
-    root.setAttribute('data-lang', lang);
-    root.setAttribute('lang', lang);
-
-    // Inputs carry only the -ph variants (a placeholder has no visible
-    // text), so they have to be selected explicitly — matching only
-    // [data-en] leaves every placeholder permanently blank.
-    var nodes = document.querySelectorAll('[data-vi],[data-en],[data-ru],[data-en-ph],[data-vi-ph],[data-ru-ph]');
-    for (var i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
-      var want = el.getAttribute('data-' + lang);
-      if (want == null) want = el.getAttribute('data-en');
-      if (want == null) want = el.getAttribute('data-vi');
-
-      // Placeholder first: an input carries only the -ph variants, so
-      // `want` is null for it and the old early-out below skipped it
-      // entirely — every placeholder stayed blank on every language.
-      var ph = el.getAttribute('data-' + lang + '-ph') || el.getAttribute('data-en-ph') || el.getAttribute('data-vi-ph');
-      if (ph != null) { el.setAttribute('placeholder', ph); continue; }
-
-      if (want == null) continue;
-
-      if (el.tagName === 'META') el.setAttribute('content', want);
-      else if (el.hasAttribute('alt')) el.setAttribute('alt', want);
-      else if (el.querySelector('.row__jump')) el.querySelector('.row__jump').textContent = want;
-      else el.textContent = want;
-    }
-
-    var menuNav = document.querySelector('.menu__nav');
-    if (menuNav) menuNav.setAttribute('aria-label', menuNav.getAttribute('data-' + lang + '-aria'));
-
-    // the toggle
-    var btns = document.querySelectorAll('[data-setlang]');
-    for (var b = 0; b < btns.length; b++) {
-      btns[b].setAttribute('aria-pressed', btns[b].getAttribute('data-setlang') === lang ? 'true' : 'false');
-    }
-
-      try { localStorage.setItem('bb-lang', lang); } catch (e) {}
-      paintClock();
-      // the picker is built in JS, so the switch has to be told
-      if (typeof labelChips === 'function' && document.getElementById('orderList')) {
-        labelChips();
-        if (typeof relabelMenuJump === 'function') relabelMenuJump();
-        var sel = document.querySelector('#orderList .ptab[aria-selected="true"]');
-        if (sel) showGroup(parseInt(sel.dataset.g, 10));
-        paintOrder();
-      }
-    }
-
-  function wireLang() {
-    var btns = document.querySelectorAll('[data-setlang]');
-    for (var i = 0; i < btns.length; i++) {
-      (function (btn) {
-        btn.addEventListener('click', function () {
-          applyLang(btn.getAttribute('data-setlang'));
-        });
-      })(btns[i]);
-    }
-  }
-
-  /* ---------------------------------------------------------
-     3. The order: quantities against the same real items and
-        prices as the board, a running total in đồng, and an
-        itemised list to read down the phone. No server, and no
-        pretence of one — the shop is a walk-in counter and the
-        phone is the channel. Payment (Telegram + VietQR) is
-        a later step; see PRODUCT.md.
-     --------------------------------------------------------- */
-  var ITEMS = [
-    // pitas: two sizes, and the size changes the price
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Salted Salmon Pita',       vi: 'Bánh pita cá hồi muối', ru: 'Пита с солёным лососем' },
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Grilled Pork Pita',        vi: 'Bánh pita thịt heo nướng',   ru: 'Пита с жареной свининой' },
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Roast Beef Pita',          vi: 'Bánh pita thịt bò nướng',    ru: 'Пита с жареной говядиной' },
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Camembert Cheese Pita',    vi: 'Bánh pita phô mai Camembert',   ru: 'Пита с камамбером' },
-    { g: 1, price: 135000, sizes: [135000, 95000], en: 'Grilled Chicken Pita',     vi: 'Bánh pita thịt gà nướng',    ru: 'Пита с жареной курицей' },
-
-    { g: 2, price: 180000, en: 'Berries Pie',                    vi: 'Bánh nướng quả mọng',       ru: 'Пирог с ягодами' },
-    { g: 2, price: 180000, en: 'Apples Pie',                     vi: 'Bánh nướng táo',             ru: 'Пирог с яблоками' },
-    { g: 2, price: 180000, en: 'Peaches Pie',                    vi: 'Bánh nướng đào',             ru: 'Пирог с персиками' },
-    { g: 2, price: 180000, en: 'Cheeses & Green Mixed Pie',      vi: 'Bánh nướng phô mai và rau thơm',  ru: 'Пирог с сыром и зеленью' },
-    { g: 2, price: 180000, en: 'Mushrooms Mixed Pie',            vi: 'Bánh nướng nhân nấm',            ru: 'Пирог с грибами' },
-
-    // hot food, off the same board as the pies
-    { g: 3, price: 320000, sizes: [320000, 180000], en: 'Adjarian Style Khachapuri', vi: 'Bánh khachapuri kiểu Adjara', ru: 'Аджарский хачапури' },
-    { g: 3, price: 90000,  en: 'Pelmeni (Mixed Meat Dumpling)', vi: 'Bánh pelmeni nhân thịt',   ru: 'Пельмени с мясом' },
-    { g: 3, price: 80000,  en: 'Vareniki (Potato Dumpling)',    vi: 'Bánh vareniki nhân khoai tây', ru: 'Вареники с картофелем' },
-    { g: 3, price: 160000, en: 'Cherry Vareniki',               vi: 'Bánh vareniki nhân anh đào',   ru: 'Вареники с вишней' },
-
-    { g: 4, price: 90000,  en: 'Napoleon Cake',                  vi: 'Bánh Napoleon', ru: 'Наполеон' },
-    { g: 4, price: 560000, en: 'Full Napoleon Cake',            vi: 'Bánh Napoleon nguyên cái',   ru: 'Наполеон целый' },
-
-    { g: 5, price: 25000,  en: 'Hand Made Pita Bread',           vi: 'Bánh mì pita làm thủ công',     ru: 'Пита' },
-    { g: 5, price: 50000,  en: 'Home-made Pickle Cucumber',      vi: 'Dưa chuột muối',       ru: 'Малосольные огурцы' },
-
-    { g: 6, price: 50000,  en: 'Hand-made Sour Cream',           vi: 'Kem chua',                   ru: 'Сметана' },
-    { g: 6, price: 45000,  en: 'Hand-made Mayonnaise',           vi: 'Sốt mayonnaise',             ru: 'Майонез' },
-    { g: 6, price: 55000,  en: 'Honey Mustard Sauce',            vi: 'Sốt mật ong mù tạt',       ru: 'Медово-горчичный соус' },
-    { g: 6, price: 60000,  en: 'Creamy Tzatziki Sauce',          vi: 'Sốt tzatziki',              ru: 'Соус цатцики' },
-    { g: 6, price: 60000,  en: 'Hand-made Berry Sauce',          vi: 'Sốt quả mọng',              ru: 'Ягодный соус' },
-    { g: 6, price: 45000,  en: 'Hand-made Pesto Sauce',          vi: 'Sốt pesto',                 ru: 'Соус песто' },
-
-    { g: 7, price: 30000,  en: 'Russian Apple Tea',              vi: 'Nước táo kiểu Nga',    ru: 'Яблочный компот' },
-    { g: 7, price: 25000,  en: 'Kvas',                           vi: 'Nước kvass',     ru: 'Квас' },
-    { g: 7, price: 55000,  en: 'Berry Milk-shakes',              vi: 'Sữa lắc quả mọng',          ru: 'Ягодный молочный коктейль' },
-    { g: 7, price: 50000,  en: 'Vanilla Milk-shakes',            vi: 'Sữa lắc vani',      ru: 'Ванильный молочный коктейль' },
-    { g: 7, price: 55000,  en: 'Oreo Milk-shakes',               vi: 'Sữa lắc Oreo',              ru: 'Молочный коктейль Oreo' },
-    { g: 7, price: 15000,  en: 'Coca Zero',                      vi: 'Coca Zero', ru: 'Coca Zero' },
-    { g: 7, price: 15000,  en: 'Aquafina Soda',                  vi: 'Nước soda Aquafina', ru: 'Aquafina' }
-  ];
-
-  var GROUPS = [
-    { en: 'Pitas',           vi: 'Bánh mì pita',  ru: 'Питы' },
-        { en: 'Pies',            vi: 'Bánh nướng',    ru: 'Пироги' },
-    { en: 'Hot food',        vi: 'Món nóng',      ru: 'Горячее' },
-    { en: 'Sweet',           vi: 'Bánh ngọt',     ru: 'Сладкое' },
-    { en: 'Bread and pickles', vi: 'Bánh mì và dưa muối', ru: 'Тесто и соленья' },
-    { en: 'Hand-made sauces', vi: 'Sốt làm tại quán', ru: 'Соусы' },
-    { en: 'Drinks',          vi: 'Đồ uống',       ru: 'Напитки' }
-  ];
-
-  var MAX_QTY = 99;
-
-  /* 85.000đ — the way the board prints it, not 85,000.
-
-     A price of zero is the one case that is not a number: the board prints
-     still water as FREE, and a line that says 0đ reads like a mistake. So a
-     zero price is written out, in the language of the page. The strings
-     table is passed in where the text is not for the page — the shop's own
-     order thread is English whatever the customer is browsing in. */
-  function vnd(n, t) {
-    if (!n) return (t || T()).free;
-    var s = String(Math.round(n));
-    var out = '';
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 === 0) out += '.';
-      out += s[i];
-    }
-    return out + 'đ';
-  }
-
-  /* A cart keyed by ITEM:SIZE, not by item. That is what lets someone
-     order two medium salmon pitas and one large of the same pita — they
-     are three separate lines, and the line total is q × the size's
-     price. Items with no size choice are just ITEMS[i]:0. */
-  var cart = {};
-
-  function vkey(i, s) { return i + ':' + s; }
-
-  function priceOf(i, s) {
-    var it = ITEMS[i];
-    return (it.sizes && it.sizes[s]) || it.price;
-  }
-
-  function qtyOf(key) { return cart[key] || 0; }
-
-  function bump(i, s, delta) {
-    var k = vkey(i, s);
-    var q = Math.max(0, Math.min(MAX_QTY, qtyOf(k) + delta));
-    if (q === 0) delete cart[k]; else cart[k] = q;
-    return q;
-  }
-
-  function cartTotal() {
-    var t = 0;
-    for (var k in cart) {
-      if (!cart.hasOwnProperty(k)) continue;
-      var p = k.split(':');
-      t += cart[k] * priceOf(parseInt(p[0], 10), parseInt(p[1], 10));
-    }
-    return t;
-  }
-
-  function cartCount() {
-    var n = 0;
-    for (var k in cart) if (cart.hasOwnProperty(k)) n += cart[k];
-    return n;
-  }
-
-  /* The picker is category-first. Thirty rows in one column is a wall, so
-     the seven groups become tabs and only the chosen group is listed.
-
-     Every row carries a real stepper: minus, count, plus. An earlier
-     version made the price chip itself a toggle — tap to add, tap again to
-     remove. That could never reach a quantity above one, and a control that
-     means two different things depending on its state is not a control
-     anyone can predict. A stepper says what it does. */
-  function buildOrderList() {
-    var host = document.getElementById('orderList');
-    if (!host) return;
-    var t = T();
-
-    GROUPS.forEach(function (g, gi) {
-      var tab = document.createElement('button');
-      tab.type = 'button';
-      tab.className = 'ptab';
-      tab.dataset.g = String(gi + 1);
-      tab.setAttribute('role', 'tab');
-      tab.setAttribute('data-vi', g.vi);
-      tab.setAttribute('data-en', g.en);
-      tab.setAttribute('data-ru', g.ru);
-      tab.textContent = g.en;
-      host.appendChild(tab);
+    document.querySelectorAll("[data-t]").forEach(function (el) {
+      el.textContent = t(el.dataset.t);
     });
-
-    var pane = document.createElement('div');
-    pane.className = 'ppane';
-    pane.id = 'orderPane';
-    pane.setAttribute('role', 'tabpanel');
-    host.parentNode.insertBefore(pane, host.nextSibling);
-
+    document.querySelectorAll("[data-lang]").forEach(function (b) {
+      b.setAttribute(
+        "aria-pressed",
+        b.dataset.lang === lang ? "true" : "false",
+      );
+    });
+    var mins;
+    try {
+      var parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      })
+        .format(new Date())
+        .split(":");
+      mins = +parts[0] * 60 + +parts[1];
+    } catch (e) {
+      mins = 0;
+    }
+    document.getElementById("open").textContent = t(
+      mins >= 450 && mins < 1200 ? "open" : "closed",
+    );
+    var nav = document.getElementById("categories"),
+      catalog = document.getElementById("catalog");
+    nav.textContent = "";
+    catalog.textContent = "";
     GROUPS.forEach(function (g, gi) {
-      var list = document.createElement('ul');
-      list.className = 'plist';
-      list.dataset.g = String(gi + 1);
-      // NOT data-vi/en/ru: the language switcher treats any element
-      // carrying those as a translatable leaf and replaces its
-      // textContent, which would wipe every row in this list.
-      list.setAttribute('data-gen', g.en);
-      list.setAttribute('data-gvi', g.vi);
-      list.setAttribute('data-gru', g.ru);
-      list.setAttribute('aria-label', g.en);
-
-      ITEMS.forEach(function (it, ix) {
+      var a = node("a", "", g[lang]);
+      a.href = "#group-" + (gi + 1);
+      nav.appendChild(a);
+      var section = node("section", "menu-section");
+      section.id = "group-" + (gi + 1);
+      var heading = node("div", "group-heading");
+      heading.appendChild(node("h3", "", g[lang]));
+      section.appendChild(heading);
+      var list = node("div", "items");
+      ITEMS.forEach(function (it, i) {
         if (it.g !== gi + 1) return;
-
-        var li = document.createElement('li');
-        li.className = 'pline';
-
-        var name = document.createElement('p');
-        name.className = 'pline__name';
-        name.setAttribute('data-vi', it.vi);
-        name.setAttribute('data-en', it.en);
-        name.setAttribute('data-ru', it.ru);
-        name.textContent = it.en;
-
-        var vars = document.createElement('div');
-        vars.className = 'pline__vars';
-
-        // a two-size pita gets one stepper per size, so the sizes are
-        // separate things you can count, not a hidden mode
-        var sizes = it.sizes ? [0, 1] : [0];
-        sizes.forEach(function (si) {
-          var v = document.createElement('div');
-          v.className = 'pvar';
-          v.dataset.i = String(ix);
-          v.dataset.s = String(si);
-
-          var lab = document.createElement('span');
-          lab.className = 'pvar__lab';
-          lab.textContent = it.sizes ? t.sizeShort[si] : '';
-
-          var price = document.createElement('span');
-          price.className = 'pvar__price num';
-          price.textContent = vnd(priceOf(ix, si), t);
-
-          var qty = document.createElement('div');
-          qty.className = 'oqty';
-
-          var minus = document.createElement('button');
-          minus.type = 'button';
-          minus.className = 'oqty__b';
-          minus.dataset.act = 'minus';
-          minus.setAttribute('aria-label', t.less + ' ' + it.en);
-          minus.textContent = '−';
-
-          var out = document.createElement('output');
-          out.className = 'oqty__n num';
-          out.textContent = '0';
-
-          var plus = document.createElement('button');
-          plus.type = 'button';
-          plus.className = 'oqty__b';
-          plus.dataset.act = 'plus';
-          plus.setAttribute('aria-label', t.more + ' ' + it.en);
-          plus.textContent = '+';
-
-          qty.appendChild(minus);
-          qty.appendChild(out);
-          qty.appendChild(plus);
-          v.appendChild(lab);
-          v.appendChild(price);
-          v.appendChild(qty);
-          vars.appendChild(v);
+        var dish = node("article", "dish");
+        var photo = node("div", "dish-photo"),
+          img = node("img");
+        img.src = "assets/img/menu/" + GALLERY[it.en] + ".webp";
+        img.alt = it[lang];
+        img.loading = "lazy";
+        photo.tabIndex = 0;
+        photo.setAttribute("role", "button");
+        photo.setAttribute("aria-label", it[lang]);
+        function view() {
+          document.getElementById("fullPhoto").src =
+            "assets/img/menu/" + GALLERY[it.en] + "@2x.webp";
+          document.getElementById("fullPhoto").alt = it[lang];
+          document.getElementById("photoCaption").textContent = it[lang];
+          document.getElementById("photoDialog").showModal();
+        }
+        photo.onclick = view;
+        photo.onkeydown = function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            view();
+          }
+        };
+        photo.appendChild(img);
+        dish.appendChild(photo);
+        var info = node("div", "dish-info");
+        info.appendChild(node("h4", "", it[lang]));
+        var variants = node("div", "variants");
+        (it.sizes ? [0, 1] : [0]).forEach(function (s) {
+          var v = node("div", "variant");
+          if (it.sizes) v.appendChild(node("span", "size", ["L", "M"][s]));
+          v.appendChild(node("span", "price", money(price(i, s))));
+          v.appendChild(step(i, s));
+          variants.appendChild(v);
         });
-
-        li.appendChild(name);
-        li.appendChild(vars);
-        list.appendChild(li);
+        info.appendChild(variants);
+        dish.appendChild(info);
+        list.appendChild(dish);
       });
-
-      pane.appendChild(list);
+      section.appendChild(list);
+      catalog.appendChild(section);
     });
-
-    showGroup(1);
+    var lines = document.getElementById("cartLines");
+    lines.textContent = "";
+    if (!count()) lines.appendChild(node("p", "empty", t("empty")));
+    Object.keys(cart).forEach(function (k) {
+      var p = k.split(":"),
+        i = +p[0],
+        s = +p[1],
+        line = node("div", "cart-line"),
+        label = node(
+          "div",
+          "",
+          ITEMS[i][lang] + (ITEMS[i].sizes ? " · " + ["L", "M"][s] : ""),
+        );
+      label.appendChild(node("small", "", money(price(i, s) * cart[k])));
+      line.appendChild(label);
+      line.appendChild(step(i, s));
+      lines.appendChild(line);
+    });
+    document.getElementById("total").textContent = money(total());
+    document.getElementById("basket").hidden = !count();
+    document.getElementById("basketCount").textContent =
+      count() +
+      " " +
+      t(count() === 1 ? "item" : "items") +
+      " · " +
+      t("yourOrder");
+    document.getElementById("basketTotal").textContent = money(total());
   }
-
-  function showGroup(g) {
-    var tabs = document.querySelectorAll('#orderList .ptab');
-    for (var i = 0; i < tabs.length; i++) {
-      var on = parseInt(tabs[i].dataset.g, 10) === g;
-      tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
-      tabs[i].setAttribute('tabindex', on ? '0' : '-1');
-    }
-    var lists = document.querySelectorAll('#orderPane .plist');
-    for (var j = 0; j < lists.length; j++) {
-      lists[j].hidden = parseInt(lists[j].dataset.g, 10) !== g;
-    }
-  }
-
-  /* The stepper labels are built in JS, not in the markup, so the
-     language switcher never touched them: the size chips and the +/- aria-labels
-     stayed in the language the page happened to load in. This re-labels
-     both from the current language. The order lines in #orderLines are
-     rebuilt by paintOrder() and are already correct. */
-  function labelChips() {
-    var pane = document.getElementById('orderPane');
-    if (!pane) return;
-    var t = T();
-    var lang = document.documentElement.getAttribute('data-lang') || DEFAULT_LANG;
-    var vars = pane.querySelectorAll('.pvar');
-    for (var v = 0; v < vars.length; v++) {
-      var el = vars[v];
-      var it = ITEMS[parseInt(el.dataset.i, 10)];
-      if (!it) continue;
-      var si = parseInt(el.dataset.s, 10);
-      var nm = lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en;
-
-      // a one-size item has no size chip, and never gets a blank one
-      var lab = el.querySelector('.pvar__lab');
-      if (lab) lab.textContent = it.sizes ? t.sizeShort[si] : '';
-
-      var minus = el.querySelector('.oqty__b[data-act="minus"]');
-      var plus = el.querySelector('.oqty__b[data-act="plus"]');
-      if (minus) minus.setAttribute('aria-label', t.less + ' ' + nm + (it.sizes ? ' ' + t.size[parseInt(el.dataset.s, 10)] : ''));
-      if (plus) plus.setAttribute('aria-label', t.more + ' ' + nm + (it.sizes ? ' ' + t.size[parseInt(el.dataset.s, 10)] : ''));
-    }
-  }
-
-  /* -------------------------------------------------------------
-     The board is a way in, not just a price list
-     ------------------------------------------------------------- */
-  /* A visitor reads the menu board first — it is the attractive part of
-     the page — and only then decides to order. Making a dish name pressable
-     closes that gap: the row opens its own group in the builder and marks
-     the line, so the next thing to do is the stepper that is already there.
-
-     The match is by dish name, not by counting positions. Counted positions
-     would be one more copy of the menu to keep in step, and the two lists
-     are hand-edited in two files — the project's signature bug. Name
-     matching fails safe instead: a dish that cannot be matched simply is
-     not pressable, which is a missing affordance rather than a wrong one.
-     If the two lists ever drift, that is exactly the moment to notice. */
-  window.__jumpDebug = { build: buildJumpIndex, rows: jumpRows };
-
-  function normName(s) {
-    return String(s).toLowerCase().replace(/\s+/g, ' ').trim();
-  }
-
-  var jumpIndex = null;
-
-  function buildJumpIndex() {
-    var map = {};
-    for (var i = 0; i < ITEMS.length; i++) map[normName(ITEMS[i].en)] = i;
-    return map;
-  }
-
-  function jumpRows() {
-    var out = [];
-    var rows = document.querySelectorAll('.board .row');
-    for (var i = 0; i < rows.length; i++) {
-      var nm = rows[i].querySelector('.row__name');
-      // matched on the English name the row carries, which does not
-      // change when the visitor switches language
-      if (nm) out.push({ el: rows[i], n: normName(nm.getAttribute('data-en')) });
-    }
-    return out;
-  }
-
-  function wireMenuJump() {
-    var board = document.querySelector('.board');
-    if (!board || !document.getElementById('orderList')) return;
-
-    jumpIndex = buildJumpIndex();
-    var rows = jumpRows();
-    var linked = 0;
-
-    for (var i = 0; i < rows.length; i++) {
-      var ix = jumpIndex[rows[i].n];
-      if (ix === undefined) continue;          // stays a plain price row
-      var el = rows[i].el;
-      el.className += ' row--jump';
-      el.setAttribute('data-jump', String(ix));
-      var name = el.querySelector('.row__name');
-      var jump = document.createElement('button');
-      jump.type = 'button';
-      jump.className = 'row__jump';
-      while (name.firstChild) jump.appendChild(name.firstChild);
-      name.appendChild(jump);
-      linked++;
-    }
-
-    // one listener for the whole board, rather than 31 of them
-    board.addEventListener('click', onJumpActivate);
-
-
-    relabelMenuJump();
-    if (window.console) {
-      console.info('menu board: ' + linked + ' of ' + rows.length +
-                   ' rows open the order builder');
-    }
-    return linked;
-  }
-
-  /* Returns true when the event was one of our rows, so the keydown
-     handler knows whether to swallow Space. */
-  function onJumpActivate(e) {
-    var el = e.target;
-    while (el && el !== document) {
-      if (el.getAttribute && el.getAttribute('data-jump') != null) break;
-      el = el.parentNode;
-    }
-    if (!el || !el.getAttribute || el.getAttribute('data-jump') == null) return false;
-    goToItem(parseInt(el.getAttribute('data-jump'), 10));
-    return true;
-  }
-
-  function goToItem(ix) {
-    var it = ITEMS[ix];
-    if (!it) return;
-
-    showGroup(it.g);
-
-    var pane = document.getElementById('orderPane');
-    if (pane && pane.scrollIntoView) {
-      var reduce = false;
+  document.querySelectorAll("[data-lang]").forEach(function (b) {
+    b.onclick = function () {
+      lang = b.dataset.lang;
       try {
-        reduce = window.matchMedia &&
-                 window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      } catch (err) { reduce = false; }
-      pane.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
-    }
-
-    // Mark the line, so the eye lands on it and not on the group's first row.
-    var lines = document.querySelectorAll('#orderPane .pline');
-    for (var i = 0; i < lines.length; i++) {
-      var v = lines[i].querySelector('.pvar');
-      if (!v || parseInt(v.dataset.i, 10) !== ix) continue;
-      lines[i].className = lines[i].className.replace(/ ?pline--hit/g, '') + ' pline--hit';
-      (function (node) {
-        setTimeout(function () {
-          node.className = node.className.replace(/ ?pline--hit/g, '');
-        }, 1800);
-      })(lines[i]);
-    }
-
-    // Move focus to the stepper of that dish: a keyboard user pressed this
-    // to get here, so the next Tab must not start from the top of the page.
-    var plus = document.querySelector('#orderPane .pvar[data-i="' + ix + '"] [data-act="plus"]');
-    if (plus && plus.focus) plus.focus();
-  }
-
-  /* The action word in the accessible name has to follow the language, and
-     the name itself is plain text in the markup, so the label is rebuilt
-     from scratch on every switch. */
-  function relabelMenuJump() {
-    var t = T();
-    var rows = document.querySelectorAll('.board .row--jump');
-    for (var i = 0; i < rows.length; i++) {
-      var nm = rows[i].querySelector('.row__name');
-      if (!nm) continue;
-      var jump = rows[i].querySelector('.row__jump');
-      if (jump) jump.setAttribute('aria-label', nm.textContent.trim() + ' — ' + t.jump);
-      // the photo button inside the row is labelled in the same language
-      var thumb = rows[i].querySelector('.row__thumb');
-      if (thumb) thumb.setAttribute('aria-label', t.photoOf + nm.textContent.trim());
-    }
-  }
-
-  function paintOrder() {
-    var sum = document.getElementById('orderSum');
-    var lang = document.documentElement.getAttribute('data-lang') || 'en';
-    var t = T();
-    var any = cartCount() > 0;
-
-    var vars = document.querySelectorAll('#orderPane .pvar');
-    for (var v = 0; v < vars.length; v++) {
-      var i = parseInt(vars[v].dataset.i, 10);
-      var s = parseInt(vars[v].dataset.s, 10);
-      var n = qtyOf(vkey(i, s));
-      vars[v].setAttribute('data-on', n ? 'true' : 'false');
-      vars[v].querySelector('.oqty__n').textContent = String(n);
-    }
-
-    // the order itself, rebuilt from scratch each time
-    var ol = document.getElementById('orderLines');
-    if (ol) {
-      ol.innerHTML = '';
-      for (var key in cart) {
-        if (!cart.hasOwnProperty(key)) continue;
-        var parts = key.split(':');
-        var i = parseInt(parts[0], 10);
-        var s = parseInt(parts[1], 10);
-        var it = ITEMS[i];
-        var nm = (lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en);
-
-        var li = document.createElement('li');
-        li.className = 'oline';
-        li.setAttribute('data-k', key);
-
-        var label = document.createElement('span');
-        label.className = 'oline__name';
-        label.textContent = nm + (it.sizes ? ' · ' + t.sizeShort[s] : '');
-
-        var step = document.createElement('div');
-        step.className = 'oqty';
-        var minus = document.createElement('button');
-        minus.type = 'button';
-        minus.className = 'oqty__b';
-        minus.dataset.act = 'minus';
-        minus.dataset.k = key;
-        minus.setAttribute('aria-label', t.less + ' ' + nm);
-        minus.textContent = '−';
-        var out = document.createElement('output');
-        out.className = 'oqty__n num';
-        out.textContent = String(cart[key]);
-        var plus = document.createElement('button');
-        plus.type = 'button';
-        plus.className = 'oqty__b';
-        plus.dataset.act = 'plus';
-        plus.dataset.k = key;
-        plus.setAttribute('aria-label', t.more + ' ' + nm);
-        plus.textContent = '+';
-        step.appendChild(minus);
-        step.appendChild(out);
-        step.appendChild(plus);
-
-        var sum_ = document.createElement('span');
-        sum_.className = 'oline__sum num';
-        sum_.textContent = vnd(priceOf(i, s) * cart[key], t);
-
-        li.appendChild(label);
-        li.appendChild(step);
-        li.appendChild(sum_);
-        ol.appendChild(li);
-      }
-    }
-
-    if (sum) sum.hidden = !any;
-    var total = document.getElementById('orderTotal');
-    if (total) total.textContent = vnd(cartTotal(), t);
-    var count = document.getElementById('orderCount');
-    if (count) count.textContent = t.items(cartCount());
-    var glance = document.getElementById('orderGlance');
-    if (glance) {
-      glance.hidden = !any;
-      document.getElementById('orderGlanceCount').textContent = t.items(cartCount());
-      document.getElementById('orderGlanceTotal').textContent = vnd(cartTotal(), t);
-    }
-  }
-
-  function orderText() {
-    var lang = document.documentElement.getAttribute('data-lang') || 'en';
-    var t = T();
-    var lines = ['Black Bird — order'];
-    var who = readCustomer();
-    if (who.name) lines.push('Name: ' + who.name);
-    if (who.phone) lines.push('Phone: ' + who.phone);
-    if (who.address) lines.push('Address: ' + who.address);
-    for (var key in cart) {
-      if (!cart.hasOwnProperty(key)) continue;
-      var p = key.split(':');
-      var i = parseInt(p[0], 10);
-      var s = parseInt(p[1], 10);
-      var it = ITEMS[i];
-      var nm = (lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en);
-      lines.push(cart[key] + ' × ' + nm + (it.sizes ? ' · ' + t.sizeShort[s] : '') +
-        ' — ' + vnd(priceOf(i, s) * cart[key], t));
-    }
-    lines.push(t.total + ': ' + vnd(cartTotal(), t));
-    lines.push(SHOP_PHONE);
-    return lines.join('\n');
-  }
-
-  /* The order lines for the shop's chat. These are read by staff, so they
-     are English whatever language the customer is browsing in — a Russian
-     interface must not put Russian dish names in the group's order thread.
-     The customer's own copy (the clipboard text) keeps their language: it
-     is what they read out at the counter. Two renderings, each in the
-     language of the person who has to read it. */
-  function orderLines(lang) {
-    if (!lang) lang = document.documentElement.getAttribute('data-lang') || 'en';
-    var t = STRINGS[LANGS.indexOf(lang) > -1 ? lang : DEFAULT_LANG];
-    var out = [];
-    for (var key in cart) {
-      if (!cart.hasOwnProperty(key)) continue;
-      var p = key.split(':');
-      var i = parseInt(p[0], 10);
-      var s = parseInt(p[1], 10);
-      var it = ITEMS[i];
-      var nm = (lang === 'vi' ? it.vi : lang === 'ru' ? it.ru : it.en);
-      out.push(cart[key] + ' × ' + nm + (it.sizes ? ' · ' + t.size[s] : '') +
-        ' — ' + vnd(priceOf(i, s) * cart[key], t));
-    }
-    return out;
-  }
-
-  /* -------------------------------------------------------------
-     Who is ordering
-     ------------------------------------------------------------- */
-  /* Orders land in a group chat where several people read them, so the
-     message has to say who wants the food. Name and phone are required:
-     a name to greet and a number to call is the minimum a shop can act
-     on, and an order without them is one nobody can answer. */
-  function readCustomer() {
-    var get = function (id) {
-      var el = document.getElementById(id);
-      return el ? String(el.value || '').trim() : '';
+        localStorage.setItem("bb-lang", lang);
+      } catch (e) {}
+      render();
     };
-    return { name: get('custName'), phone: get('custPhone'), address: get('custAddress') };
+  });
+  var messages = {
+    en: {
+      send: "Send order",
+      copy: "Copy order",
+      sending: "Sending…",
+      sent: "Sent to the shop. Order reference: ",
+      failed: "Not sent. Please copy your order or call the shop.",
+      copied: "Order copied.",
+      copyFailed: "Could not copy. Please call 038 226 4034.",
+      phoneError: "Enter a valid phone number, for example 091 234 56 78.",
+    },
+    vi: {
+      send: "Gửi đơn",
+      copy: "Sao chép đơn",
+      sending: "Đang gửi…",
+      sent: "Đã gửi đến quán. Mã đơn: ",
+      failed: "Chưa gửi được. Vui lòng sao chép đơn hoặc gọi cho quán.",
+      copied: "Đã sao chép đơn.",
+      copyFailed: "Không sao chép được. Vui lòng gọi 038 226 4034.",
+      phoneError: "Nhập số điện thoại hợp lệ, ví dụ 091 234 56 78.",
+    },
+    ru: {
+      send: "Отправить заказ",
+      copy: "Скопировать заказ",
+      sending: "Отправка…",
+      sent: "Отправлено в заведение. Номер заказа: ",
+      failed: "Не отправлено. Скопируйте заказ или позвоните нам.",
+      copied: "Заказ скопирован.",
+      copyFailed: "Не удалось скопировать. Позвоните 038 226 4034.",
+      phoneError: "Введите корректный номер телефона, например 091 234 56 78.",
+    },
+  };
+  Object.keys(messages).forEach(function (l) {
+    Object.assign(text[l], messages[l]);
+  });
+  function T() {
+    return text[lang];
   }
-
-  /* Digits, spaces and dashes. A Vietnamese number is written the way it is
-     dialled — 091 234 56 78, leading zero, no +84 — so a leading zero is
-     the expected shape, not a mistake to strip.
-
-     Accepted: 0 followed by 2-9 (02 Hanoi, 028 HCMC, 03/05/06/07/08/09
-     regional and mobile), the eight-digit Hanoi-style landline, and the
-     +84 / 84 / 0084 international forms an expat may well type. Rejected:
-     01..., which no Vietnamese operator issues, and anything under eight
-     digits, which is a typo rather than a number — a wrong number
-     reaching the shop costs a customer their food. */
-  function phoneOK(v) {
-    if (!v) return false;
-    var bare = v.replace(/[\s\-().]/g, '');
-    var digits = v.replace(/[^\d]/g, '');
-    if (digits.length < 8 || digits.length > 15) return false;
-    if (/^(?:\+?84|0084)/.test(bare)) return true;
-    if (/^0[2-9]\d{7,10}$/.test(bare)) return true;   // 02... 03... 08... 09...
-    if (/^2\d{7}$/.test(bare)) return true;           // 8-digit landline
-    return false;
+  function vnd(n) {
+    return money(n);
   }
-
-  function sendOrder(btn) {
-    if (cartCount() === 0 || btn.disabled) return;
-    var who = readCustomer();
-    var t = T();
-    var busy = function (msg) { flash(btn, msg); };
-
-    if (!who.name || !phoneOK(who.phone)) {
-      // Say which field is wrong instead of shipping an order the shop
-      // cannot answer, and say it on the button they just pressed.
-      var bad = document.getElementById(!who.name ? 'custName' : 'custPhone');
-      if (bad && bad.focus) bad.focus();
-      busy(t.nameNeeded);
+  function fallbackCopy(value, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(
+        function () {
+          done(true);
+        },
+        function () {
+          legacy();
+        },
+      );
+    } else legacy();
+    function legacy() {
+      var a = document.createElement("textarea");
+      a.value = value;
+      a.style.cssText = "position:fixed;left:-9999px";
+      document.body.appendChild(a);
+      a.select();
+      var ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch (e) {}
+      a.remove();
+      done(ok);
+    }
+  }
+  function lines(l) {
+    return Object.keys(cart).map(function (k) {
+      var p = k.split(":"),
+        i = +p[0],
+        s = +p[1];
+      return (
+        cart[k] +
+        " × " +
+        ITEMS[i][l] +
+        (ITEMS[i].sizes
+          ? " · " + (l === "en" ? ["Large", "Medium"][s] : ["L", "M"][s])
+          : "") +
+        " — " +
+        money(price(i, s) * cart[k])
+      );
+    });
+  }
+  function customer() {
+    var f = document.getElementById("orderForm");
+    return {
+      name: f.elements.name.value.trim(),
+      phone: f.elements.phone.value.trim(),
+      address: f.elements.address.value.trim(),
+    };
+  }
+  document.getElementById("copyOrder").onclick = function () {
+    var c = customer();
+    fallbackCopy(
+      ["Black Bird", c.name, c.phone, c.address]
+        .concat(lines(lang), [t("total") + ": " + money(total())])
+        .filter(Boolean)
+        .join("\n"),
+      function (ok) {
+        document.getElementById("status").textContent = t(
+          ok ? "copied" : "copyFailed",
+        );
+      },
+    );
+  };
+  document.getElementById("orderForm").onsubmit = function (e) {
+    e.preventDefault();
+    if (busy) return;
+    var status = document.getElementById("status");
+    if (!count()) {
+      status.textContent = t("need");
       return;
     }
-
-    var text = orderText();
-    // English to the shop: the group chat is read by staff, not by the
-    // customer who happens to be browsing in another language.
-    var lines = orderLines('en');
-
-    if (!ORDER_API) {
-      fallbackCopy(text, function (ok) { busy(ok ? t.copied : t.notSentNoCopy); });
+    if (sentRef) {
+      status.textContent = t("sent") + sentRef;
       return;
     }
-
-    btn.disabled = true;
-    btn.setAttribute('aria-busy', 'true');
-    btn.textContent = t.sending;
-    fetch(ORDER_API, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+    document.getElementById("payBox").hidden = true;
+    var who = customer();
+    var digits = who.phone.replace(/[^0-9]/g, "");
+    if (digits.length < 8 || digits.length > 15) {
+      status.textContent = t("phoneError");
+      document.getElementById("custPhone").focus();
+      return;
+    }
+    busy = true;
+    var button = document.getElementById("sendOrder");
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    status.textContent = t("sending");
+    fetch("https://blackbird-bot.maybeetube.workers.dev/order", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        lines: lines,
-        total: vnd(cartTotal(), STRINGS.en),
-        amount: cartTotal(),
+        lines: lines("en"),
+        total: money(total()),
+        amount: total(),
         customer: who,
         customer_chat_id: null,
-      })
-    }).then(function (r) {
-      return r.json().then(function (j) { return { ok: r.ok, j: j }; });
-    }).then(function (res) {
-      btn.disabled = false;
-      btn.removeAttribute('aria-busy');
-      btn.textContent = btn.getAttribute('data-' + (document.documentElement.getAttribute('data-lang') || 'en'));
-      if (res.ok && res.j && res.j.ok) {
-        busy(T().sent + ' ' + res.j.ref);
-        showPay(res.j.ref, res.j.pay);
-      } else {
-        // The order did not reach the shop. Say so, and still hand the
-        // customer something they can read out or paste.
-        var err = (res.j && res.j.error) || 'unknown';
-        fallbackCopy(text, function (ok) {
-          busy(ok ? T().notSent : T().notSentNoCopy);
+      }),
+    })
+      .then(function (r) {
+        return r.json().then(function (body) {
+          if (!r.ok || !body.ok) throw new Error("not sent");
+          return body;
         });
-        if (window.console) console.warn('order not delivered:', err);
-      }
-    }).catch(function (e) {
-      btn.disabled = false;
-      btn.removeAttribute('aria-busy');
-      btn.textContent = btn.getAttribute('data-' + (document.documentElement.getAttribute('data-lang') || 'en'));
-      fallbackCopy(text, function (ok) { busy(ok ? T().notSent : T().notSentNoCopy); });
-      if (window.console) console.warn('order request failed:', e);
-    });
-  }
-
-  /* The payment panel, filled from the worker's answer. Everything that
-     must be exact — the amount and the memo that both sides read — comes
-     from the server's reference, so nothing here retypes it. If the
-     worker sent no pay block (bank not configured), this stays hidden and
-     the order stands without payment, exactly as before. */
-  // VietQR publishes different app identifiers for Android and iOS. Keep a
-  // small offline fallback so a failed app-list request never blocks the QR.
+      })
+      .then(function (body) {
+        sentRef = body.ref;
+        status.textContent = t("sent") + body.ref;
+        showPay(body.ref, body.pay);
+      })
+      .catch(function () {
+        status.textContent = t("failed");
+      })
+      .then(function () {
+        busy = false;
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+      });
+  };
+  document.getElementById("photoClose").onclick = function () {
+    document.getElementById("photoDialog").close();
+  };
   function loadBankApps(select) {
     var fallback = [
-      ['vcb', 'VCB Digibank'], ['mb', 'MB Bank'], ['tcb', 'Techcombank Mobile'],
-      ['bidv', 'BIDV SmartBanking'], ['icb', 'VietinBank iPay'], ['acb', 'ACB ONE'],
-      ['vpb', 'VPBank NEO'], ['tpb', 'TPBank Mobile'], ['ocb', 'OCB OMNI'],
-      ['vba', 'Agribank Plus']
+      ["vcb", "VCB Digibank"],
+      ["mb", "MB Bank"],
+      ["tcb", "Techcombank Mobile"],
+      ["bidv", "BIDV SmartBanking"],
+      ["icb", "VietinBank iPay"],
+      ["acb", "ACB ONE"],
+      ["vpb", "VPBank NEO"],
+      ["tpb", "TPBank Mobile"],
+      ["ocb", "OCB OMNI"],
+      ["vba", "Agribank Plus"],
     ];
     function populate(apps) {
       var selected = select.value;
       while (select.options.length > 1) select.remove(1);
       apps.forEach(function (app) {
-        var option = document.createElement('option');
-        option.value = app[0]; option.textContent = app[1];
+        var option = document.createElement("option");
+        option.value = app[0];
+        option.textContent = app[1];
         select.appendChild(option);
       });
       select.value = selected;
       if (select.value !== selected && select.onchange) select.onchange();
     }
     populate(fallback);
-    var os = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'ios' : 'android';
-    fetch('https://api.vietqr.io/v2/' + os + '-app-deeplinks')
-      .then(function (r) { if (!r.ok) throw new Error('bank list unavailable'); return r.json(); })
+    var os =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+        ? "ios"
+        : "android";
+    fetch("https://api.vietqr.io/v2/" + os + "-app-deeplinks")
+      .then(function (r) {
+        if (!r.ok) throw new Error("bank list unavailable");
+        return r.json();
+      })
       .then(function (data) {
         if (!data || !Array.isArray(data.apps)) return;
-        var apps = data.apps.filter(function (app) {
-          return app && typeof app.appId === 'string' && /^[a-z0-9-]+$/.test(app.appId) &&
-            typeof app.appName === 'string' && app.appName.length > 0;
-        }).map(function (app) { return [app.appId, app.appName]; });
+        var apps = data.apps
+          .filter(function (app) {
+            return (
+              app &&
+              typeof app.appId === "string" &&
+              /^[a-z0-9-]+$/.test(app.appId) &&
+              typeof app.appName === "string" &&
+              app.appName.length > 0
+            );
+          })
+          .map(function (app) {
+            return [app.appId, app.appName];
+          });
         if (apps.length) populate(apps);
-      }).catch(function () { /* fallback and QR remain available */ });
+      })
+      .catch(function () {
+        /* fallback and QR remain available */
+      });
   }
 
   function showPay(ref, pay) {
-    var box = document.getElementById('payBox');
+    var box = document.getElementById("payBox");
     if (!box) return;
-    if (!pay || !pay.url) { box.hidden = true; return; }
+    if (!pay || !pay.url) {
+      box.hidden = true;
+      return;
+    }
     var t = T();
     // the static labels switch with the interface through data-vi/en/ru
     // attributes; only the values the server produced are set here.
-    document.getElementById('payQr').src = pay.url;
-    var open = document.getElementById('payOpen');
-    var bank = document.getElementById('payBank');
+    document.getElementById("payQr").src = pay.url;
+    var open = document.getElementById("payOpen");
+    var bank = document.getElementById("payBank");
     if (open && bank) {
       open.hidden = true;
-      bank.value = '';
+      bank.value = "";
       bank.onchange = function () {
-        if (!bank.value) { open.hidden = true; open.removeAttribute('href'); return; }
+        if (!bank.value) {
+          open.hidden = true;
+          open.removeAttribute("href");
+          return;
+        }
         // The receiving bank and the customer's app are separate choices.
-        var params = 'app=' + encodeURIComponent(bank.value) +
-          '&ba=' + encodeURIComponent(pay.account + '@' + pay.bank.toLowerCase()) +
-          '&am=' + encodeURIComponent(pay.amount) + '&tn=' + encodeURIComponent(ref) +
-          '&bn=' + encodeURIComponent(pay.accountName) +
-          '&url=' + encodeURIComponent(window.location.origin + window.location.pathname);
-        open.href = 'https://dl.vietqr.io/pay?' + params;
+        var params =
+          "app=" +
+          encodeURIComponent(bank.value) +
+          "&ba=" +
+          encodeURIComponent(pay.account + "@" + pay.bank.toLowerCase()) +
+          "&am=" +
+          encodeURIComponent(pay.amount) +
+          "&tn=" +
+          encodeURIComponent(ref) +
+          "&bn=" +
+          encodeURIComponent(pay.accountName) +
+          "&url=" +
+          encodeURIComponent(window.location.origin + window.location.pathname);
+        open.href = "https://dl.vietqr.io/pay?" + params;
         open.hidden = false;
       };
       loadBankApps(bank);
     }
-    document.getElementById('payQr').alt = 'VietQR ' + ref;
-    document.getElementById('payMemoVal').textContent = ref;
-    document.getElementById('payAmount').textContent = vnd(pay.amount);
-    document.getElementById('payAcctVal').textContent = pay.account;
-    document.getElementById('payHolderVal').textContent = pay.accountName;
+    document.getElementById("payQr").alt = "VietQR " + ref;
+    document.getElementById("payMemoVal").textContent = ref;
+    document.getElementById("payAmount").textContent = vnd(pay.amount);
+    document.getElementById("payAcctVal").textContent = pay.account;
+    document.getElementById("payHolderVal").textContent = pay.accountName;
     box.hidden = false;
     if (box.scrollIntoView) {
       var reduce = false;
       try {
-        reduce = window.matchMedia &&
-                 window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      } catch (err) { reduce = false; }
-      box.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+        reduce =
+          window.matchMedia &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      } catch (err) {
+        reduce = false;
+      }
+      box.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "center",
+      });
     }
     // the memo is the one thing a wrong copy ruins, so offer it as a button
-    var btn = document.getElementById('payMemoCopy');
+    var btn = document.getElementById("payMemoCopy");
     if (btn) {
       btn.onclick = function () {
         fallbackCopy(ref, function (ok) {
@@ -1017,298 +595,22 @@
     }
   }
 
-  function wireOrder() {
-    buildOrderList();
-    var host = document.getElementById('orderList');
-    if (!host) return;
-    labelChips();
-
-    // category tabs
-    var cur = 1;
-    host.addEventListener('click', function (e) {
-      var tab = e.target.closest('.ptab');
-      if (!tab) return;
-      cur = parseInt(tab.dataset.g, 10);
-      showGroup(cur);
-    });
-
-    // left/right arrows move between tabs, as a tablist should
-    host.addEventListener('keydown', function (e) {
-      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-      var d = e.key === 'ArrowRight' ? 1 : -1;
-      var active = host.querySelector('.ptab[aria-selected="true"]');
-      if (active) cur = parseInt(active.dataset.g, 10);
-      cur = ((cur - 1 + d + GROUPS.length) % GROUPS.length) + 1;
-      showGroup(cur);
-      var t = host.querySelector('.ptab[data-g="' + cur + '"]');
-      if (t) t.focus();
-      e.preventDefault();
-    });
-
-    // the pane: a plain minus / plus on whichever row was pressed
-    var pane = document.getElementById('orderPane');
-    if (pane) {
-      pane.addEventListener('click', function (e) {
-        var b = e.target.closest('.oqty__b');
-        if (!b) return;
-        var v = b.closest('.pvar');
-        bump(parseInt(v.dataset.i, 10), parseInt(v.dataset.s, 10),
-             b.dataset.act === 'plus' ? 1 : -1);
-        paintOrder();
-      });
-    }
-
-    var lines = document.getElementById('orderLines');
-    if (lines) {
-      lines.addEventListener('click', function (e) {
-        var b = e.target.closest('.oqty__b');
-        if (!b) return;
-        var parts = b.dataset.k.split(':');
-        bump(parseInt(parts[0], 10), parseInt(parts[1], 10),
-             b.dataset.act === 'plus' ? 1 : -1);
-        paintOrder();
-      });
-    }
-
-    var copy = document.getElementById('copyOrder');
-    if (copy) {
-      copy.addEventListener('click', function () {
-        if (cartCount() === 0) return;
-        var text = orderText();
-        var done = function (ok) { flash(copy, ok ? T().copied : T().notCopied); };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(function () { done(true); }, function () { fallbackCopy(text, done); });
-        } else {
-          fallbackCopy(text, done);
-        }
-      });
-    }
-
-    var send = document.getElementById('sendOrder');
-    if (send) {
-      send.addEventListener('click', function () { sendOrder(send); });
-    }
-
-    paintOrder();
-  }
-
-  /* The clipboard API needs a secure context, which file:// and plain
-     http are not — so there is a selection-based path behind it.
-
-     done(ok) is called either way, with whether the text actually
-     landed in the clipboard. It used to fire only on success, which
-     meant a failed copy left the visitor with no message at all: the
-     button blinked "Sending…" and went quiet, and they could not tell
-     whether the shop had their order. Every failure path now says
-     something, because on this page a wrong fact is worse than a
-     missing one — and so is silence. */
-  function fallbackCopy(text, done) {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.cssText = 'position:fixed;left:-9999px;top:0';
-    document.body.appendChild(ta);
-    ta.select();
-    var ok = false;
-    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-    document.body.removeChild(ta);
-    done(ok);
-  }
-
-  var flashTimer = null;
-  function flash(el, msg) {
-    if (!el) return;
-    var prev = el.getAttribute('data-label');
-    if (prev) el.textContent = prev;
-    el.setAttribute('data-label', el.textContent);
-    el.textContent = msg;
-    if (flashTimer) clearTimeout(flashTimer);
-    flashTimer = setTimeout(function () {
-      el.textContent = el.getAttribute('data-label') || el.textContent;
-      el.removeAttribute('data-label');
-    }, 2200);
-  }
-
-
-  /* ---------------------------------------------------------
-     boot
-     --------------------------------------------------------- */
-  /* -------------------------------------------------------------
-     The dish gallery: photos in the menu rows, opened in a lightbox.
-     -------------------------------------------------------------
-     Each board row that has a matching photo gains a small thumbnail
-     button; tapping it opens the full picture in a dark overlay with
-     the dish name and price, and the arrows move between photos. The
-     mapping is dish name -> photo stem (assets/img/menu/<stem>.webp),
-     so a row with no photo is untouched and a rename in the board
-     only breaks that one dish, nothing else.
-  ------------------------------------------------------------------ */
-  var GALLERY = {
-    'Salted Salmon Pita': 'salted_salmon_pita',
-    'Grilled Pork Pita': 'grilled_pork_pita',
-    'Roast Beef Pita': 'roast_beef_pita',
-    'Camembert Cheese Pita': 'camembert_pita',
-    'Grilled Chicken Pita': 'grilled_chicken_pita',
-    'Berries Pie': 'berries_pie',
-    'Apples Pie': 'apples_pie',
-    'Peaches Pie': 'peaches_pie',
-    'Cheeses & Green Mixed Pie': 'cheeses_green_pie',
-    'Mushrooms Mixed Pie': 'mushrooms_pie',
-    'Hand Made Pita Bread': 'hand_made_pita_bread',
-    'Home-made Pickle Cucumber': 'pickle_cucumber',
-    'Hand-made Sour Cream': 'hand_made_sour_cream',
-    'Hand-made Mayonnaise': 'handmade_mayonnaise',
-    'Honey Mustard Sauce': 'honey_mustard_sauce',
-    'Creamy Tzatziki Sauce': 'creamy_tzatziki_sauce',
-    'Hand-made Berry Sauce': 'hand_made_berry_sauce',
-    'Hand-made Pesto Sauce': 'pesto_sauce',
-    'Russian Apple Tea': 'russian_apple_tea',
-    'Kvas': 'kvas',
-    'Berry Milk-shakes': 'berry_milkshake',
-    'Vanilla Milk-shakes': 'vanilla_milkshake',
-    'Oreo Milk-shakes': 'oreo_milkshake',
-    'Coca Zero': 'coca_zero',
-    'Aquafina Soda': 'aquafina_soda',
-    'Napoleon Cake': 'napoleon_cake',
-    'Full Napoleon Cake': 'napoleon_cake',
-    'Beetroot Smoothie': 'beetroot_smoothie',
-    'Adjarian Style Khachapuri': 'adjarian_khachapuri',
-    'Pelmeni (Mixed Meat Dumpling)': 'pelmeni',
-    'Vareniki (Potato Dumpling)': 'vareniki_potato',
-    'Cherry Vareniki': 'cherry_vareniki'
-      };
-
-      /* Bump this when the photos change. The images are served by Cloudflare
-         with long-lived cache, so a replaced .webp under the same name would
-         otherwise keep serving the old picture to repeat visitors and the
-         friend. Appending a version forces the browser to fetch the new file. */
-      var GALLERY_VER = 'v6';
-
-  function wireGallery() {
-    var box = document.getElementById('lightbox');
-    if (!box) return;
-    // build the list of photos in board order, so arrows can move between
-    // them in the order a visitor reads the menu
-    var list = [];
-    var rows = document.querySelectorAll('.board .row');
-    for (var i = 0; i < rows.length; i++) {
-      var nmEl = rows[i].querySelector('.row__name');
-      if (!nmEl) continue;
-      // The visible name follows the page language, so the photo is
-      // looked up by the English name the row always carries.
-      var stem = GALLERY[nmEl.getAttribute('data-en')];
-      if (!stem) continue;
-      var price = rows[i].querySelector('.row__price');
-      // the name and the price are read when a photo is opened, not
-      // here, so the lightbox follows the language being read
-      list.push({ stem: stem, nameEl: nmEl, priceEl: price });
-      // thumbnail button inside the row body
-      var body = rows[i].querySelector('.row__body');
-      if (!body) continue;
-      rows[i].className = (rows[i].className + ' row--photo').replace(/\s+/g, ' ').trim();
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'row__thumb';
-      btn.setAttribute('aria-label', 'Photo of ' + nmEl.getAttribute('data-en'));
-      var img = document.createElement('img');
-      img.src = 'assets/img/menu/' + stem + '.webp?v=' + GALLERY_VER;
-      img.alt = '';
-      img.loading = 'lazy';
-      btn.appendChild(img);
-      body.insertBefore(btn, body.firstChild);
-      // open the lightbox at this photo
-      (function (index) {
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          openLightbox(index);
-        });
-      })(list.length - 1);
-    }
-    // the photo buttons were just created, so they are labelled here too,
-    // in whatever language the page is being read
-    relabelMenuJump();
-    if (!list.length) return;
-    // lightbox controls
-    window.GALLERY_LIST = list;
-    var close = box.querySelector('.lightbox__close');
-    var prev = box.querySelector('.lightbox__nav--prev');
-    var next = box.querySelector('.lightbox__nav--next');
-    var opener = null;
-    function openLightbox(idx) {
-      if (box.hidden) opener = document.activeElement;
-      window.GALLERY_IDX = idx;
-      var it = list[idx];
-      var img = box.querySelector('.lightbox__img');
-      img.src = 'assets/img/menu/' + it.stem + '@2x.webp?v=' + GALLERY_VER;
-      var nm = it.nameEl.textContent.trim();
-      img.alt = nm;
-      box.querySelector('.lightbox__name').textContent = nm;
-      box.querySelector('.lightbox__price').textContent =
-        it.priceEl ? it.priceEl.textContent.replace(/\s+/g, ' ').trim() : '';
-      box.hidden = false;
-      document.body.style.overflow = 'hidden';
-      close.focus();
-    }
-    window.openLightbox = openLightbox;
-    function closeLightbox() {
-      box.hidden = true;
-      document.body.style.overflow = '';
-      if (opener && opener.focus) opener.focus();
-    }
-    window.closeLightbox = closeLightbox;
-    function move(dir) {
-      if (window.GALLERY_IDX === undefined) return;
-      var n = list.length;
-      openLightbox((window.GALLERY_IDX + dir + n) % n);
-    }
-    close.addEventListener('click', closeLightbox);
-    box.addEventListener('click', function (e) {
-      if (e.target === box) closeLightbox();
-    });
-    prev.addEventListener('click', function () { move(-1); });
-    next.addEventListener('click', function () { move(1); });
-    document.addEventListener('keydown', function (e) {
-      if (box.hidden) return;
-      if (e.key === 'Tab') {
-        var controls = [close, prev, next];
-        var at = controls.indexOf(document.activeElement);
-        if (e.shiftKey && at <= 0) { next.focus(); e.preventDefault(); }
-        else if (!e.shiftKey && (at === controls.length - 1 || at < 0)) { close.focus(); e.preventDefault(); }
-      }
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowLeft') move(-1);
-      if (e.key === 'ArrowRight') move(1);
-    });
-    // swipe on touch
-    var sx = 0;
-    box.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
-    box.addEventListener('touchend', function (e) {
-      var dx = e.changedTouches[0].clientX - sx;
-      if (Math.abs(dx) > 50) move(dx < 0 ? 1 : -1);
-    }, { passive: true });
-  }
-
-  function init() {
-    var saved = null;
-    try { saved = localStorage.getItem('bb-lang'); } catch (e) {}
-    applyLang(LANGS.indexOf(saved) > -1 ? saved : DEFAULT_LANG);
-
-    wireLang();
-    wireOrder();
-    wireMenuJump();
-    wireGallery();
-    paintProgress();
-    paintDock();
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    window.addEventListener('focus', paintClock);
-    // keep the state honest if the page is left open across closing time
-    setInterval(paintClock, 30000);
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  render();
+  setInterval(function () {
+    if (!busy) renderClock();
+  }, 60000);
+  function renderClock() {
+    var p = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .format(new Date())
+      .split(":");
+    var m = +p[0] * 60 + +p[1];
+    document.getElementById("open").textContent = t(
+      m >= 450 && m < 1200 ? "open" : "closed",
+    );
   }
 })();
